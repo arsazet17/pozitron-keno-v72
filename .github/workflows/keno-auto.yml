@@ -1,0 +1,29 @@
+name: Keno Auto Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+jobs:
+  check-lucky-numbers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Проверить Lucky Numbers
+        run: |
+          set -e
+
+          curl -L \
+            --fail \
+            --retry 3 \
+            --connect-timeout 20 \
+            -A "Mozilla/5.0" \
+            "https://lucky-numbers.ru/lottery/ru/keno2" \
+            -o lucky.html
+
+          echo "Получено байт: $(wc -c < lucky.html)"
+
+          grep -q "Архив тиражей КЕНО" lucky.html
+
+          echo "Lucky Numbers доступен — проверка успешна"
