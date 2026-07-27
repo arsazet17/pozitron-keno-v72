@@ -1,0 +1,42 @@
+name: Keno Auto
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "2-59/5 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keno-auto
+  cancel-in-progress: false
+
+jobs:
+  update-forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить файлы репозитория
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Установить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Получить тираж и рассчитать прогноз
+        run: node keno-auto.js
+
+      - name: Сохранить обновление
+        run: |
+          if git diff --quiet -- keno-history.json keno-auto.json; then
+            echo "Нового тиража или изменений нет"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add keno-history.json keno-auto.json
+          git commit -m "Автопрогноз КЕНО"
+          git push
