@@ -326,14 +326,40 @@
   }
 
   const FORECAST_STORAGE_KEY = 'pozitron-sm-column-forecasts-v1';
+  let cloudColumnForecasts = [];
+  let cloudForecastStatus = 'загрузка';
 
-  function loadColumnForecasts() {
+  function localColumnForecasts() {
     try {
       const value = JSON.parse(localStorage.getItem(FORECAST_STORAGE_KEY) || '[]');
       return Array.isArray(value) ? value : [];
     } catch (_) {
       return [];
     }
+  }
+
+  function loadColumnForecasts() {
+    const merged = new Map();
+    for (const row of [...cloudColumnForecasts, ...localColumnForecasts()]) {
+      if (!row || !row.type || row.afterDraw == null) continue;
+      const key = `${row.type}:${Number(row.afterDraw)}`;
+      if (!merged.has(key) || row.checked) merged.set(key, row);
+    }
+    return [...merged.values()];
+  }
+
+  async function loadCloudForecasts() {
+    try {
+      const response = await fetch(`keno-auto.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      cloudColumnForecasts = Array.isArray(data.forecasts) ? data.forecasts : [];
+      cloudForecastStatus = data.latestDraw ? `облако до №${data.latestDraw}` : 'облако подключено';
+    } catch (_) {
+      cloudForecastStatus = 'только память телефона';
+    }
+    const panel = $('sprintMarathonPanel');
+    if (panel?.classList.contains('show') && panel.dataset.which) render(panel.dataset.which);
   }
 
   function saveColumnForecast(model) {
@@ -399,6 +425,7 @@
     const changes = model.seq.slice(1).filter((x, i) => x !== model.seq[i]).length;
     return `<div class="sm-card">
       <div class="sm-head">${icon} ${model.name}</div>
+      <div class="small sm-cloud">☁ ${cloudForecastStatus}</div>
       <div class="sm-seq">${model.seq.map(stateShort).join('→')}</div>
       <div class="small"><b>Цикл:</b> ${model.type} · смен ${changes}/${Math.max(1, model.seq.length - 1)}</div>
       <div class="section"><span>Цепочки тиражей</span></div>
@@ -495,7 +522,7 @@
     document.head.appendChild(style);
   }
 
-  function start() { styles(); inject(); }
+  function start() { styles(); inject(); loadCloudForecasts(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
 })();
