@@ -44,6 +44,73 @@
     return out;
   }
 
+
+  function parseStatePattern(value) {
+    return String(value || '')
+      .replace(/4\s*\+/gi, '4')
+      .split(/[^0-4]+/)
+      .filter(Boolean)
+      .map(Number)
+      .filter(n => Number.isInteger(n) && n >= 0 && n <= 4);
+  }
+
+  function statePatternStats(pattern, maxIndex) {
+    const countsNext = Array(5).fill(0);
+    const examples = [];
+    if (!Array.isArray(pattern) || pattern.length < 1) return { total: 0, countsNext, examples };
+
+    for (let end = Math.max(pattern.length, 1); end < maxIndex; end += 1) {
+      const candidate = sequence(end, pattern.length);
+      if (candidate.length !== pattern.length) continue;
+      if (!candidate.every((v, i) => v === pattern[i])) continue;
+      const next = stateBeforeWinner(end + 1);
+      if (next === null) continue;
+      countsNext[next] += 1;
+      if (examples.length < 5) examples.push({
+        fromDraw: draws[end - pattern.length + 1]?.draw,
+        toDraw: draws[end]?.draw,
+        nextDraw: draws[end + 1]?.draw,
+        next
+      });
+    }
+    return { total: countsNext.reduce((a, b) => a + b, 0), countsNext, examples };
+  }
+
+  function patternResultHtml(pattern, maxIndex) {
+    if (!pattern.length) return '<div class="small">Введите цепочку: например 3 2 2 2, 2 2 или 4+ 2 1.</div>';
+    const stats = statePatternStats(pattern, maxIndex);
+    if (!stats.total) return `<div class="small">После цепочки <b>${pattern.map(stateShort).join('→')}</b> точных случаев в архиве не найдено.</div>`;
+    const rows = stats.countsNext
+      .map((count, state) => ({ state, count, percent: Math.round(count * 100 / stats.total) }))
+      .filter(x => x.count)
+      .sort((a, b) => b.count - a.count || a.state - b.state);
+    return `<div class="sm-pattern-summary">После <b>${pattern.map(stateShort).join('→')}</b> · найдено ${stats.total}</div>
+      <div class="sm-pattern-results">${rows.map(x => `<div class="sm-pattern-chip"><b>${stateShort(x.state)}</b><strong>${x.percent}%</strong><small>${x.count} раз</small></div>`).join('')}</div>`;
+  }
+
+  function patternFinderHtml(model) {
+    const initial = model.seq.slice(-4);
+    return `<div class="section"><span>Поиск выхода после цепочки</span></div>
+      <div class="sm-pattern-box">
+        <div class="small">Любая цепочка режимов: 3 2 2 2, 2 2, 4+ 2 1</div>
+        <div class="sm-pattern-row">
+          <input id="smPattern_${model.typeKey}" value="${initial.map(stateShort).join(' ')}" inputmode="text" aria-label="Цепочка режимов">
+          <button id="smPatternBtn_${model.typeKey}" type="button">Найти</button>
+        </div>
+        <div id="smPatternResult_${model.typeKey}">${patternResultHtml(initial, model.endIndex)}</div>
+      </div>`;
+  }
+
+  function bindPatternFinder(model) {
+    const input = $(`smPattern_${model.typeKey}`);
+    const button = $(`smPatternBtn_${model.typeKey}`);
+    const result = $(`smPatternResult_${model.typeKey}`);
+    if (!input || !button || !result) return;
+    const run = () => { result.innerHTML = patternResultHtml(parseStatePattern(input.value), model.endIndex); };
+    button.onclick = run;
+    input.onkeydown = e => { if (e.key === 'Enter') run(); };
+  }
+
   function weightedSimilarity(a, b) {
     const n = Math.min(a.length, b.length);
     if (!n) return 0;
@@ -477,6 +544,7 @@
       <div class="sm-head">${icon} ${model.name}</div>
       <div class="sm-seq">${model.seq.map(stateShort).join('→')}</div>
       <div class="small"><b>Цикл:</b> ${model.type} · смен ${changes}/${Math.max(1, model.seq.length - 1)}</div>
+      ${patternFinderHtml(model)}
       <div class="section"><span>Цепочки тиражей</span></div>
       <div class="sm-chain-list">${chainBlocksHtml(model)}</div>
       <div class="section"><span>Вероятное продолжение режима</span></div>
@@ -530,6 +598,9 @@
       box.innerHTML = selector + `<div class="small sm-day-count">За ${selectedDate}: ${day.length} тиражей. Спринт — 2 последних цикла (${sprint.window} тиражей), Марафон — ${Math.min(40, day.length)}.</div>` + content;
       const select2 = $('smDateSelect');
       if (select2) select2.onchange = e => { selectedDate = e.target.value; render(which); };
+      if (which === 'sprint') bindPatternFinder(sprint);
+      else if (which === 'marathon') bindPatternFinder(marathon);
+      else { bindPatternFinder(sprint); bindPatternFinder(marathon); }
     }, 20);
   }
 
@@ -574,7 +645,7 @@
       .sm-seq{font-size:25px;font-weight:950;color:#83e6a5;letter-spacing:1px;overflow-wrap:anywhere;margin:8px 0}
       .sm-regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.sm-reg{border:1px solid #355275;border-radius:9px;padding:7px 3px;text-align:center}.sm-reg b,.sm-reg span,.sm-reg small{display:block}.sm-reg span{color:#ffd764;font-weight:900}.sm-reg small{color:#9fb0c6;margin-top:2px}.sm-reg.sm-off{opacity:.48}.sm-reg.sm-off span{color:#9fb0c6}
       .sm-chain-list{display:grid;gap:7px}.sm-chain-block{border:1px solid #2a4464;border-radius:10px;padding:9px;background:#101f33}.sm-chain-block b{display:block;margin-bottom:5px}.sm-chain-block span{color:#9fb0c6;font-weight:800}.sm-chain-block .sm-hit{display:inline;font-weight:950;margin-left:2px}.sm-chain-block .sm-hit-first{color:#54e58a}.sm-chain-block .sm-hit-other{color:#63c7ff}.sm-chain-block .sm-hit-miss{color:#ff6b6b}
-      .sm-line{border-bottom:1px solid #263c58;padding:8px 2px}.sm-balls{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.sm-ball{border:1px solid #466b48;background:#122c25;border-radius:10px;text-align:center;padding:8px}.sm-ball b{display:block;font-size:24px;color:#8eedaa}.sm-ball small{color:#9fb0c6}.sm-why{margin-top:5px}.sm-agree{margin-top:12px;border:1px solid #6a6036;background:#2b2712;border-radius:12px;padding:11px;color:#ffe18b}
+      .sm-pattern-box{border:1px solid #2b4668;border-radius:12px;padding:10px;background:#0a1728}.sm-pattern-row{display:flex;gap:8px;margin:8px 0}.sm-pattern-row input{min-width:0;flex:1;background:#102238;color:#fff;border:1px solid #355275;border-radius:9px;padding:10px;font-size:17px;font-weight:800}.sm-pattern-row button{background:#244d78;color:#fff;border:1px solid #4b78a8;border-radius:9px;padding:8px 14px;font-weight:900}.sm-pattern-summary{margin:8px 0;color:#c7d3e3}.sm-pattern-results{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.sm-pattern-chip{border:1px solid #355275;border-radius:9px;text-align:center;padding:7px 3px;background:#102238}.sm-pattern-chip b,.sm-pattern-chip strong,.sm-pattern-chip small{display:block}.sm-pattern-chip b{font-size:18px}.sm-pattern-chip strong{color:#ffd75e}.sm-pattern-chip small{color:#9fb0c6;font-size:11px}.sm-line{border-bottom:1px solid #263c58;padding:8px 2px}.sm-balls{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.sm-ball{border:1px solid #466b48;background:#122c25;border-radius:10px;text-align:center;padding:8px}.sm-ball b{display:block;font-size:24px;color:#8eedaa}.sm-ball small{color:#9fb0c6}.sm-why{margin-top:5px}.sm-agree{margin-top:12px;border:1px solid #6a6036;background:#2b2712;border-radius:12px;padding:11px;color:#ffe18b}
       @media(max-width:420px){.sm-regs{grid-template-columns:repeat(5,1fr)}.sm-reg{font-size:11px}.sm-balls{grid-template-columns:repeat(3,1fr)}}`;
     document.head.appendChild(style);
   }
