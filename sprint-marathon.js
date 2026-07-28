@@ -6,6 +6,22 @@
   const pct = v => `${Math.round((Number(v) || 0) * 100)}%`;
   let selectedDate = '';
   let autoForecastData = null;
+  let winnerCache = [];
+  let stateCache = [];
+
+  function rebuildStateCache() {
+    const list = Array.isArray(draws) ? draws : [];
+    winnerCache = new Array(list.length);
+    stateCache = new Array(list.length).fill(null);
+    const drawCounts = new Array(list.length);
+    for (let i = 0; i < list.length; i += 1) {
+      drawCounts[i] = counts(list[i]);
+      winnerCache[i] = Number(safeAnalysis(list[i]).winner) || 1;
+    }
+    for (let i = 1; i < list.length; i += 1) {
+      stateCache[i] = Math.min(4, drawCounts[i - 1][winnerCache[i]] || 0);
+    }
+  }
 
   function safeAnalysis(d) {
     try { return typeof analysis === 'function' ? analysis(d) : {}; }
@@ -19,12 +35,14 @@
   }
 
   function winnerAt(i) {
-    return Number(safeAnalysis(draws[i]).winner) || 1;
+    if (winnerCache.length !== (Array.isArray(draws) ? draws.length : 0)) rebuildStateCache();
+    return winnerCache[i] || 1;
   }
 
   function stateBeforeWinner(i) {
     if (i <= 0) return null;
-    return Math.min(4, counts(draws[i - 1])[winnerAt(i)] || 0);
+    if (stateCache.length !== (Array.isArray(draws) ? draws.length : 0)) rebuildStateCache();
+    return stateCache[i] ?? null;
   }
 
   function stateLabel(s) {
@@ -97,7 +115,7 @@
           <input id="smPattern_${model.typeKey}" value="${initial.map(stateShort).join(' ')}" inputmode="text" aria-label="Цепочка режимов">
           <button id="smPatternBtn_${model.typeKey}" type="button">Найти</button>
         </div>
-        <div id="smPatternResult_${model.typeKey}">${patternResultHtml(initial, model.endIndex)}</div>
+        <div id="smPatternResult_${model.typeKey}"><div class="small">Нажмите «Найти», чтобы проверить эту цепочку по архиву.</div></div>
       </div>`;
   }
 
@@ -669,12 +687,12 @@
 
       if (changed && Array.isArray(draws)) {
         draws.splice(0, draws.length, ...fresh);
+        rebuildStateCache();
         lastKnownDraw = freshLast;
         autoForecastData = null;
         await loadAutoForecastData();
 
         if (typeof window.render === 'function') window.render();
-        else if (typeof render === 'function') render();
 
         const panel = $('sprintMarathonPanel');
         if (panel?.classList.contains('show')) render(panel.dataset.which || 'marathon');
@@ -702,6 +720,7 @@
   }
 
   function start() {
+    rebuildStateCache();
     styles();
     inject();
     startAutoRefresh();
