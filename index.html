@@ -665,33 +665,14 @@ function render(){
  renderCards();renderChains();renderArchive();renderLivePredictionCheck();renderPredictionHistory()
 }
 async function update(){
- const externalUrl=(localStorage.getItem('pozitron_v5_url')||'https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws').trim();
+ const url=(localStorage.getItem('pozitron_v5_url')||'https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws').trim();
+ if(!url){$('status').textContent='Источник не настроен — нажмите ⚙';return}
  $('status').textContent='Проверяю новые тиражи…';
-
- const sources=[
-  `./keno-history.json?v=${Date.now()}`,
-  externalUrl
- ].filter(Boolean);
-
- let lastError=null;
- for(const url of sources){
-  try{
-   const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
-   const arr=parse(await r.text());if(!arr.length)throw new Error('нет распознанных тиражей');
-   const added=merge(arr);
-   render();
-   $('status').textContent=added
-    ?`Добавлено ${added} · всего ${draws.length}`
-    :`База актуальна · всего ${draws.length} · последний №${draws.at(-1)?.draw||'—'}`;
-   window.dispatchEvent(new CustomEvent('pozitron-draws-updated',{detail:{added,total:draws.length,last:draws.at(-1)?.draw||null}}));
-   return
-  }catch(e){lastError=e}
- }
-
- render();
- $('status').textContent=draws.length
-  ?`База загружена · всего ${draws.length} · последний №${draws.at(-1).draw}`
-  :`Обновление временно недоступно${lastError?': '+lastError.message:''}`;
+ try{
+  const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+  const arr=parse(await r.text());if(!arr.length)throw new Error('нет распознанных тиражей');
+  const added=merge(arr);render();$('status').textContent=`Добавлено ${added} · всего ${draws.length}`
+ }catch(e){render();$('status').textContent='Обновление не выполнено: '+e.message}
 }
 function auto(){
  clearInterval(timer);timer=null;
