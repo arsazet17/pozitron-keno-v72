@@ -650,7 +650,63 @@
     document.head.appendChild(style);
   }
 
-  function start() { styles(); inject(); }
+  let historySyncBusy = false;
+  let lastKnownDraw = 0;
+
+  async function syncHistoryFromGithub(forceRender = false) {
+    if (historySyncBusy) return;
+    historySyncBusy = true;
+    try {
+      const response = await fetch(`keno-history.json?ts=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const fresh = await response.json();
+      if (!Array.isArray(fresh) || !fresh.length) return;
+
+      fresh.sort((a, b) => Number(a.draw) - Number(b.draw));
+      const freshLast = Number(fresh.at(-1)?.draw || 0);
+      const currentLast = Number(Array.isArray(draws) ? draws.at(-1)?.draw : 0) || 0;
+      const changed = freshLast > currentLast || fresh.length !== (Array.isArray(draws) ? draws.length : 0);
+
+      if (changed && Array.isArray(draws)) {
+        draws.splice(0, draws.length, ...fresh);
+        lastKnownDraw = freshLast;
+        autoForecastData = null;
+        await loadAutoForecastData();
+
+        if (typeof window.render === 'function') window.render();
+        else if (typeof render === 'function') render();
+
+        const panel = $('sprintMarathonPanel');
+        if (panel?.classList.contains('show')) render(panel.dataset.which || 'marathon');
+      } else if (forceRender) {
+        const panel = $('sprintMarathonPanel');
+        if (panel?.classList.contains('show')) render(panel.dataset.which || 'marathon');
+      }
+    } catch (_) {
+      // Не ломаем приложение при кратком сбое сети: повторим на следующем цикле.
+    } finally {
+      historySyncBusy = false;
+    }
+  }
+
+  function startAutoRefresh() {
+    if (window.__pozitronSprintMarathonRefresh) clearInterval(window.__pozitronSprintMarathonRefresh);
+    lastKnownDraw = Number(Array.isArray(draws) ? draws.at(-1)?.draw : 0) || 0;
+    window.__pozitronSprintMarathonRefresh = setInterval(() => syncHistoryFromGithub(false), 60000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) syncHistoryFromGithub(true);
+    });
+    window.addEventListener('focus', () => syncHistoryFromGithub(true));
+    window.addEventListener('online', () => syncHistoryFromGithub(true));
+  }
+
+  function start() {
+    styles();
+    inject();
+    startAutoRefresh();
+    setTimeout(() => syncHistoryFromGithub(false), 1500);
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
 })();
