@@ -5,7 +5,6 @@
   const colOf = n => n % 10 || 10;
   const pct = v => `${Math.round((Number(v) || 0) * 100)}%`;
   let selectedDate = '';
-  let autoForecastData = null;
 
   function safeAnalysis(d) {
     try { return typeof analysis === 'function' ? analysis(d) : {}; }
@@ -28,7 +27,7 @@
   }
 
   function stateLabel(s) {
-    return s === 4 ? '4 и более' : String(s);
+    return s === 4 ? '4+' : String(s);
   }
 
   function stateShort(s) {
@@ -291,29 +290,6 @@
     return arr.sort((a, b) => b.score - a.score || a.n - b.n).slice(0, limit);
   }
 
-  async function loadAutoForecastData() {
-    try {
-      const response = await fetch(`keno-auto.json?ts=${Date.now()}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      autoForecastData = await response.json();
-    } catch (_) {
-      autoForecastData = null;
-    }
-  }
-
-  function forecastMark(type, drawNumber, winnerColumn) {
-    const forecasts = Array.isArray(autoForecastData?.forecasts) ? autoForecastData.forecasts : [];
-    const forecast = forecasts.find(item =>
-      item?.type === type && Number(item?.targetDraw) === Number(drawNumber)
-    );
-    if (!forecast || !Array.isArray(forecast.columns)) return '';
-
-    const place = forecast.columns.map(Number).indexOf(Number(winnerColumn));
-    if (place === 0) return '<span class="sm-hit sm-hit-first" title="Первый прогноз">✓</span>';
-    if (place > 0 && place < 4) return '<span class="sm-hit sm-hit-other" title="Прогноз 2–4">✓</span>';
-    return '<span class="sm-hit sm-hit-miss" title="Не угадали ни один из 4 столбцов">✕</span>';
-  }
-
   function dateIndices(date) {
     const out = [];
     for (let i = 0; i < draws.length; i += 1) if (draws[i]?.date === date) out.push(i);
@@ -324,42 +300,8 @@
     return [...new Set(draws.map(d => d?.date).filter(Boolean))].reverse();
   }
 
-  function splitIntoCycles(indices) {
-    const cycles = [];
-    let current = [];
-
-    for (const index of indices) {
-      if (!current.length) {
-        current.push(index);
-        continue;
-      }
-
-      const prevIndex = current.at(-1);
-      const prevStamp = drawStamp(draws[prevIndex]);
-      const curStamp = drawStamp(draws[index]);
-      const gapMinutes = prevStamp !== null && curStamp !== null
-        ? Math.round((curStamp - prevStamp) / 60000)
-        : 30;
-      const newCycle = gapMinutes > 35
-        || draws[index]?.date !== draws[prevIndex]?.date
-        || current.length >= 5;
-
-      if (newCycle) {
-        cycles.push(current);
-        current = [index];
-      } else {
-        current.push(index);
-      }
-    }
-
-    if (current.length) cycles.push(current);
-    return cycles;
-  }
-
   function sprintModel(dayIndices) {
-    const cycles = splitIntoCycles(dayIndices);
-    const chosenCycles = cycles.slice(-2);
-    const chosen = chosenCycles.flat();
+    const chosen = dayIndices.slice(-10);
     const end = chosen.at(-1);
     const start = chosen[0];
     const seq = chosen.map(i => stateBeforeWinner(i)).filter(v => v !== null);
@@ -367,19 +309,7 @@
     const ranked = rankColumns(pred, 8, end);
     const cols = ranked.slice(0, 4);
     const nums = rankNumbers(cols.map(x => x.col), 8, 6, end);
-    return {
-      name: 'СПРИНТ',
-      seq,
-      pred,
-      cols,
-      nums,
-      type: classify(seq),
-      window: chosen.length,
-      startIndex: start,
-      endIndex: end,
-      cycles: chosenCycles,
-      typeKey: 'sprint'
-    };
+    return { name: 'СПРИНТ', seq, pred, cols, nums, type: classify(seq), window: chosen.length, startIndex: start, endIndex: end };
   }
 
   function marathonModel(dayIndices) {
@@ -392,7 +322,7 @@
     const ranked = rankColumns(pred, Math.min(40, chosen.length), end);
     const cols = ranked.slice(0, 6);
     const nums = rankNumbers(cols.map(x => x.col), Math.min(40, chosen.length), 8, end);
-    return { name: 'МАРАФОН', seq, pred, cols, nums, type: classify(seq), window: chosen.length, startIndex: start, endIndex: end, typeKey: 'marathon' };
+    return { name: 'МАРАФОН', seq, pred, cols, nums, type: classify(seq), window: chosen.length, startIndex: start, endIndex: end };
   }
 
   function regimeBars(pred) {
@@ -407,20 +337,18 @@
     }).join('');
   }
 
-  function drawBlockHtml(startIndex, endIndex, typeKey) {
+  function drawBlockHtml(startIndex, endIndex) {
     const start = draws[startIndex];
     const end = draws[endIndex];
     const cols = [];
     const states = [];
     for (let i = startIndex; i <= endIndex; i += 1) {
-      const winner = winnerAt(i);
-      const mark = forecastMark(typeKey, draws[i]?.draw, winner);
-      cols.push(`ст${winner}${mark}`);
+      cols.push(winnerAt(i));
       states.push(stateBeforeWinner(i));
     }
     return `<div class="sm-chain-block">
       <b>№${start.draw}–№${end.draw} · ${start.date} · ${start.time}–${end.time}</b>
-      <div><span>Столбцы:</span> ${cols.join(' → ')}</div>
+      <div><span>Столбцы:</span> ${cols.map(c => `ст${c}`).join(' → ')}</div>
       <div><span>Выход:</span> ${states.map(stateLabel).join(' → ')}</div>
     </div>`;
   }
@@ -433,13 +361,6 @@
   }
 
   function chainBlocksHtml(model) {
-    if (Array.isArray(model.cycles) && model.cycles.length) {
-      return model.cycles
-        .filter(cycle => cycle.length)
-        .map(cycle => drawBlockHtml(cycle[0], cycle.at(-1), model.typeKey))
-        .join('');
-    }
-
     const blocks = [];
     let start = model.startIndex;
 
@@ -454,12 +375,12 @@
       const newCycle = gapMinutes > 35 || draws[i]?.date !== draws[i - 1]?.date;
 
       if (reachedFive || newCycle) {
-        blocks.push(drawBlockHtml(start, i - 1, model.typeKey));
+        blocks.push(drawBlockHtml(start, i - 1));
         start = i;
       }
     }
 
-    if (start <= model.endIndex) blocks.push(drawBlockHtml(start, model.endIndex, model.typeKey));
+    if (start <= model.endIndex) blocks.push(drawBlockHtml(start, model.endIndex));
     return blocks.join('');
   }
 
@@ -510,8 +431,7 @@
     box.innerHTML = selector + '<div class="row">⏳ Анализирую выбранный день…</div>';
     const select = $('smDateSelect');
     if (select) select.onchange = e => { selectedDate = e.target.value; render(which); };
-    setTimeout(async () => {
-      await loadAutoForecastData();
+    setTimeout(() => {
       const sprint = sprintModel(day);
       const marathon = marathonModel(day);
       const content = which === 'sprint'
@@ -519,7 +439,7 @@
         : which === 'marathon'
           ? modelHtml(marathon, '🐢')
           : modelHtml(sprint, '🏃') + modelHtml(marathon, '🐢') + agreementHtml(sprint, marathon);
-      box.innerHTML = selector + `<div class="small sm-day-count">За ${selectedDate}: ${day.length} тиражей. Спринт — 2 последних цикла (${sprint.window} тиражей), Марафон — ${Math.min(40, day.length)}.</div>` + content;
+      box.innerHTML = selector + `<div class="small sm-day-count">За ${selectedDate}: ${day.length} тиражей. Спринт — последние ${Math.min(10, day.length)}, Марафон — ${Math.min(40, day.length)}.</div>` + content;
       const select2 = $('smDateSelect');
       if (select2) select2.onchange = e => { selectedDate = e.target.value; render(which); };
     }, 20);
@@ -565,7 +485,7 @@
       .sm-title,.sm-head{font-size:20px;font-weight:950}.sm-date-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}.sm-date-row select{background:#102238;color:#fff;border:1px solid #355275;border-radius:10px;padding:10px 12px;font-weight:900;font-size:16px;max-width:58%}.sm-day-count{margin:6px 0 10px;color:#9fb0c6}.sm-card{border:1px solid #2b4668;border-radius:14px;padding:12px;margin-top:10px;background:#0e1d30}
       .sm-seq{font-size:25px;font-weight:950;color:#83e6a5;letter-spacing:1px;overflow-wrap:anywhere;margin:8px 0}
       .sm-regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.sm-reg{border:1px solid #355275;border-radius:9px;padding:7px 3px;text-align:center}.sm-reg b,.sm-reg span,.sm-reg small{display:block}.sm-reg span{color:#ffd764;font-weight:900}.sm-reg small{color:#9fb0c6;margin-top:2px}.sm-reg.sm-off{opacity:.48}.sm-reg.sm-off span{color:#9fb0c6}
-      .sm-chain-list{display:grid;gap:7px}.sm-chain-block{border:1px solid #2a4464;border-radius:10px;padding:9px;background:#101f33}.sm-chain-block b{display:block;margin-bottom:5px}.sm-chain-block span{color:#9fb0c6;font-weight:800}.sm-chain-block .sm-hit{display:inline;font-weight:950;margin-left:2px}.sm-chain-block .sm-hit-first{color:#54e58a}.sm-chain-block .sm-hit-other{color:#63c7ff}.sm-chain-block .sm-hit-miss{color:#ff6b6b}
+      .sm-chain-list{display:grid;gap:7px}.sm-chain-block{border:1px solid #2a4464;border-radius:10px;padding:9px;background:#101f33}.sm-chain-block b{display:block;margin-bottom:5px}.sm-chain-block span{color:#9fb0c6;font-weight:800}
       .sm-line{border-bottom:1px solid #263c58;padding:8px 2px}.sm-balls{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.sm-ball{border:1px solid #466b48;background:#122c25;border-radius:10px;text-align:center;padding:8px}.sm-ball b{display:block;font-size:24px;color:#8eedaa}.sm-ball small{color:#9fb0c6}.sm-why{margin-top:5px}.sm-agree{margin-top:12px;border:1px solid #6a6036;background:#2b2712;border-radius:12px;padding:11px;color:#ffe18b}
       @media(max-width:420px){.sm-regs{grid-template-columns:repeat(5,1fr)}.sm-reg{font-size:11px}.sm-balls{grid-template-columns:repeat(3,1fr)}}`;
     document.head.appendChild(style);
