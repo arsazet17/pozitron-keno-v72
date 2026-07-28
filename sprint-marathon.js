@@ -407,7 +407,11 @@
     }).join('');
   }
 
-  function drawBlockHtml(startIndex, endIndex, typeKey) {
+  function predictedState(pred) {
+    return (pred?.order || []).find(state => (pred.available?.[state] || []).length) ?? null;
+  }
+
+  function drawBlockHtml(startIndex, endIndex, typeKey, nextState = null) {
     const start = draws[startIndex];
     const end = draws[endIndex];
     const cols = [];
@@ -434,9 +438,13 @@
 
   function chainBlocksHtml(model) {
     if (Array.isArray(model.cycles) && model.cycles.length) {
-      return model.cycles
-        .filter(cycle => cycle.length)
-        .map(cycle => drawBlockHtml(cycle[0], cycle.at(-1), model.typeKey))
+      const cycles = model.cycles.filter(cycle => cycle.length);
+      return cycles
+        .map((cycle, index) => drawBlockHtml(
+          cycle[0],
+          cycle.at(-1),
+          model.typeKey
+        ))
         .join('');
     }
 
@@ -474,7 +482,7 @@
       <div class="section"><span>Вероятное продолжение режима</span></div>
       <div class="sm-regs">${regimeBars(model.pred)}</div>
       <div class="row small">Точных пятёрок: ${model.pred.exact} · близких фрагментов: ${model.pred.near} · переключений учтено: ${model.pred.switchCases}</div>
-      <div class="section"><span>Подготовленные столбцы</span></div>
+      <div class="section"><span>Выход №${Number(draws.at(-1)?.draw || 0) + 1}</span></div>
       ${model.cols.map((x, i) => `<div class="sm-line"><b>${i + 1}. ст${x.col}</b> · сейчас ${stateLabel(x.state)} · ${Math.round(x.score * 100)} баллов<br><span class="small">${x.reasons.join(' · ') || 'по режиму цепочки'}</span></div>`).join('')}
       <div class="section"><span>Комбинация чисел</span></div>
       <div class="sm-balls">${model.nums.map(x => `<div class="sm-ball"><b>${pad(x.n)}</b><small>ст${x.col}</small></div>`).join('')}</div>
