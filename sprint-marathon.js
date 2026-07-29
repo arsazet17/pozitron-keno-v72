@@ -8,6 +8,8 @@
   let autoForecastData = null;
   let winnerCache = [];
   let stateCache = [];
+  const FORECAST_ARCHIVE_KEY = 'pozitron_sm_number_archive_v2';
+  const FORECAST_ARCHIVE_LIMIT = 2000;
 
   function rebuildStateCache() {
     const list = Array.isArray(draws) ? draws : [];
@@ -299,30 +301,61 @@
     return prev.filter(n => last.has(n)).length;
   }
 
-  function numberScore(n, col, window, endIndex) {
-    const last = draws[endIndex];
-    const set = new Set(last.balls || []);
+  function recentGap(n, endIndex, maxWindow = 40) {
+    const start = Math.max(0, endIndex - maxWindow + 1);
+    for (let i = endIndex; i >= start; i -= 1) {
+      if ((draws[i]?.balls || []).includes(n)) return endIndex - i;
+    }
+    return maxWindow;
+  }
+
+  function sprintNumberScore(n, col, endIndex) {
+    const lastSet = new Set(draws[endIndex]?.balls || []);
+    const prevSet = new Set(draws[endIndex - 1]?.balls || []);
+    const recent = draws.slice(Math.max(0, endIndex - 7), endIndex + 1);
+    const hits = recent.filter(d => (d?.balls || []).includes(n)).length;
+    const has = x => x >= 1 && x <= 80 && lastSet.has(x);
     let score = 0;
-    const reasons = [];
-    if (colOf(n) !== col) return { score: -99, reasons };
 
-    const recent = draws.slice(Math.max(0, endIndex - window + 1), endIndex + 1);
-    const hits = recent.filter(d => (d.balls || []).includes(n)).length;
-    if (set.has(n)) { score += 1.55; reasons.push('повтор'); }
-    score += (hits / Math.max(1, window)) * 1.25;
-    if (hits >= 2) reasons.push(`частота ${hits}/${window}`);
+    // Спринт ищет короткое движение. Повтор больше не получает огромного преимущества.
+    score += lastSet.has(n) ? 0.30 : 0.62;
+    score += (hits / Math.max(1, recent.length)) * 0.95;
+    if (!lastSet.has(n) && prevSet.has(n)) score += 0.45;
+    if (has(n - 1) || has(n + 1)) score += 0.40;
+    if (has(n - 10) || has(n + 10)) score += 0.48;
+    if (has(n - 2) || has(n + 2)) score += 0.20;
+    if (recentGap(n, endIndex, 12) >= 3) score += 0.28;
 
-    const has = x => x >= 1 && x <= 80 && set.has(x);
-    if (has(n - 1) && has(n + 1)) { score += 1.55; reasons.push('центр последовательности'); }
-    if (has(n - 2) && has(n + 2)) { score += 1.25; reasons.push('сходящаяся сборка'); }
-    if (has(n - 10) && has(n + 10)) { score += 1.55; reasons.push('вертикальный центр'); }
-    if (has(n - 20) && has(n + 20)) { score += 0.80; reasons.push('вертикаль ±20'); }
-    if (has(n - 1) || has(n + 1)) { score += 0.35; reasons.push('соседство ±1'); }
-    if (has(n - 2) || has(n + 2)) { score += 0.25; reasons.push('соседство ±2'); }
-    if (has(n - 10) || has(n + 10)) { score += 0.35; reasons.push('вертикальная связь'); }
-    if (!set.has(n)) score += 0.15;
+    return { score, reasons: [] };
+  }
 
-    return { score, reasons: [...new Set(reasons)] };
+  function marathonNumberScore(n, col, window, endIndex, sprintSet) {
+    const lastSet = new Set(draws[endIndex]?.balls || []);
+    const start = Math.max(0, endIndex - window + 1);
+    const recent = draws.slice(start, endIndex + 1);
+    const hits = recent.filter(d => (d?.balls || []).includes(n)).length;
+    const gap = recentGap(n, endIndex, Math.max(12, window));
+    const half = Math.max(1, Math.floor(recent.length / 2));
+    const earlyHits = recent.slice(0, half).filter(d => (d?.balls || []).includes(n)).length;
+    const lateHits = recent.slice(half).filter(d => (d?.balls || []).includes(n)).length;
+    let freshReturns = 0;
+
+    for (let i = Math.max(start + 1, 1); i <= endIndex; i += 1) {
+      const before = new Set(draws[i - 1]?.balls || []);
+      const current = new Set(draws[i]?.balls || []);
+      if (!before.has(n) && current.has(n)) freshReturns += 1;
+    }
+
+    let score = 0;
+    // Марафон смотрит длинную историю, возвраты и пропуски, а не копирует Спринт.
+    score += (hits / Math.max(1, recent.length)) * 0.90;
+    score += Math.min(1.20, gap / 10);
+    score += Math.min(0.75, freshReturns * 0.12);
+    if (lateHits > earlyHits) score += 0.30;
+    if (lastSet.has(n)) score -= 0.28;
+    if (sprintSet.has(n)) score -= 0.65;
+
+    return { score, reasons: [] };
   }
 
   function rankColumns(pred, window, endIndex) {
@@ -365,15 +398,56 @@
     return rows.sort((a, b) => b.score - a.score || b.regime - a.regime || a.col - b.col);
   }
 
-  function rankNumbers(cols, window, limit, endIndex) {
-    const arr = [];
-    for (const col of cols) {
-      for (let n = col; n <= 80; n += 10) {
-        const ranked = numberScore(n, col, window, endIndex);
-        arr.push({ n, col, ...ranked });
+  function pickNumbers(rows, limit, options = {}) {
+    const lastSet = new Set(draws[options.endIndex]?.balls || []);
+    const avoidSet = options.avoidSet || new Set();
+    const maxRepeats = Number.isFinite(options.maxRepeats) ? options.maxRepeats : limit;
+    const maxOverlap = Number.isFinite(options.maxOverlap) ? options.maxOverlap : limit;
+    const selected = [];
+    let repeats = 0;
+    let overlaps = 0;
+
+    for (const row of rows) {
+      if (selected.length >= limit) break;
+      const isRepeat = lastSet.has(row.n);
+      const isOverlap = avoidSet.has(row.n);
+      if (isRepeat && repeats >= maxRepeats) continue;
+      if (isOverlap && overlaps >= maxOverlap) continue;
+      selected.push(row);
+      if (isRepeat) repeats += 1;
+      if (isOverlap) overlaps += 1;
+    }
+
+    // Защитное заполнение: комбинация всегда должна иметь нужную длину.
+    if (selected.length < limit) {
+      const used = new Set(selected.map(x => x.n));
+      for (const row of rows) {
+        if (selected.length >= limit) break;
+        if (used.has(row.n)) continue;
+        selected.push(row);
+        used.add(row.n);
       }
     }
-    return arr.sort((a, b) => b.score - a.score || a.n - b.n).slice(0, limit);
+    return selected;
+  }
+
+  function rankSprintNumbers(cols, endIndex) {
+    const rows = [];
+    for (const col of cols) {
+      for (let n = col; n <= 80; n += 10) rows.push({ n, col, ...sprintNumberScore(n, col, endIndex) });
+    }
+    rows.sort((a, b) => b.score - a.score || a.n - b.n);
+    return pickNumbers(rows, 6, { endIndex, maxRepeats: 2 });
+  }
+
+  function rankMarathonNumbers(cols, window, endIndex, sprintNums = []) {
+    const sprintSet = new Set(sprintNums.map(x => Number(x?.n ?? x)));
+    const rows = [];
+    for (const col of cols) {
+      for (let n = col; n <= 80; n += 10) rows.push({ n, col, ...marathonNumberScore(n, col, window, endIndex, sprintSet) });
+    }
+    rows.sort((a, b) => b.score - a.score || a.n - b.n);
+    return pickNumbers(rows, 8, { endIndex, maxRepeats: 2, avoidSet: sprintSet, maxOverlap: 2 });
   }
 
   async function loadAutoForecastData() {
@@ -451,7 +525,7 @@
     const pred = analogForecast(seq, 1, end - 1, end);
     const ranked = rankColumns(pred, 8, end);
     const cols = ranked.slice(0, 4);
-    const nums = rankNumbers(cols.map(x => x.col), 8, 6, end);
+    const nums = rankSprintNumbers(cols.map(x => x.col), end);
     return {
       name: 'СПРИНТ',
       seq,
@@ -467,7 +541,7 @@
     };
   }
 
-  function marathonModel(dayIndices) {
+  function marathonModel(dayIndices, sprintNums = []) {
     const chosen = dayIndices.slice(-40);
     const end = chosen.at(-1);
     const start = chosen[0];
@@ -476,7 +550,7 @@
     const pred = analogForecast(tail, 1, end - 1, end);
     const ranked = rankColumns(pred, Math.min(40, chosen.length), end);
     const cols = ranked.slice(0, 6);
-    const nums = rankNumbers(cols.map(x => x.col), Math.min(40, chosen.length), 8, end);
+    const nums = rankMarathonNumbers(cols.map(x => x.col), Math.min(40, chosen.length), end, sprintNums);
     return { name: 'МАРАФОН', seq, pred, cols, nums, type: classify(seq), window: chosen.length, startIndex: start, endIndex: end, typeKey: 'marathon' };
   }
 
@@ -556,6 +630,111 @@
     return blocks.join('');
   }
 
+  function readNumberArchive() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(FORECAST_ARCHIVE_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeNumberArchive(records) {
+    try {
+      localStorage.setItem(FORECAST_ARCHIVE_KEY, JSON.stringify(records.slice(-FORECAST_ARCHIVE_LIMIT)));
+    } catch (_) {
+      // Архив не должен ломать основной анализ при запрете локального хранилища.
+    }
+  }
+
+  function saveForecastPair(sprint, marathon) {
+    if (!sprint || !marathon || sprint.endIndex !== draws.length - 1 || marathon.endIndex !== draws.length - 1) return;
+    const source = draws[sprint.endIndex];
+    const targetDraw = Number(source?.draw || 0) + 1;
+    if (!targetDraw) return;
+
+    const records = readNumberArchive();
+    if (records.some(r => Number(r?.targetDraw) === targetDraw)) return;
+    records.push({
+      targetDraw,
+      sourceDraw: Number(source.draw),
+      sourceDate: source.date || '',
+      createdAt: new Date().toISOString(),
+      sprint: sprint.nums.map(x => Number(x.n)),
+      marathon: marathon.nums.map(x => Number(x.n))
+    });
+    writeNumberArchive(records);
+  }
+
+  function actualDrawByNumber(drawNumber) {
+    const index = draws.findIndex(d => Number(d?.draw) === Number(drawNumber));
+    return index >= 0 ? { index, draw: draws[index] } : null;
+  }
+
+  function archiveNumbersHtml(nums, actualSet) {
+    return nums.map(n => {
+      const hit = actualSet?.has(Number(n));
+      return `<span class="sm-archive-num${hit ? ' sm-archive-hit' : ''}">${pad(n)}${hit ? '<b>✓</b>' : ''}</span>`;
+    }).join('');
+  }
+
+  function archiveRowHtml(record) {
+    const actual = actualDrawByNumber(record.targetDraw);
+    const actualSet = actual ? new Set(actual.draw?.balls || []) : null;
+    const winner = actual ? winnerAt(actual.index) : null;
+    const time = actual?.draw?.time ? String(actual.draw.time).slice(0, 5) : '';
+    const head = actual
+      ? `№${record.targetDraw} · ст${winner} · ${time}`
+      : `№${record.targetDraw} · ожидается`;
+    return `<div class="sm-archive-row">
+      <b>${head}</b>
+      <div><span>🏃</span>${archiveNumbersHtml(record.sprint || [], actualSet)}</div>
+      <div><span>🐢</span>${archiveNumbersHtml(record.marathon || [], actualSet)}</div>
+    </div>`;
+  }
+
+  function forecastArchiveHtml() {
+    const records = readNumberArchive();
+    if (!records.length) {
+      return `<details class="sm-archive"><summary>Архив комбинаций</summary><div class="small">Первая запись появится после фиксации прогноза на следующий тираж.</div></details>`;
+    }
+
+    const groups = new Map();
+    for (const record of records) {
+      const actual = actualDrawByNumber(record.targetDraw);
+      const date = actual?.draw?.date || record.sourceDate || 'Без даты';
+      if (!groups.has(date)) groups.set(date, []);
+      groups.get(date).push(record);
+    }
+
+    const dates = [...groups.keys()].sort((a, b) => {
+      const ai = groups.get(a).at(-1)?.targetDraw || 0;
+      const bi = groups.get(b).at(-1)?.targetDraw || 0;
+      return bi - ai;
+    });
+
+    return `<details class="sm-archive"><summary>Архив комбинаций</summary>
+      <div class="sm-archive-days">${dates.map((date, index) => {
+        const rows = groups.get(date).slice().sort((a, b) => Number(a.targetDraw) - Number(b.targetDraw));
+        return `<details class="sm-archive-day"${index === 0 ? ' open' : ''}><summary>${date}</summary>${rows.map(archiveRowHtml).join('')}</details>`;
+      }).join('')}</div>
+    </details>`;
+  }
+
+  function captureLatestForecast() {
+    try {
+      if (!Array.isArray(draws) || draws.length < 2) return;
+      const latestDate = draws.at(-1)?.date;
+      const day = dateIndices(latestDate);
+      if (!day.length) return;
+      const sprint = sprintModel(day);
+      const marathon = marathonModel(day, sprint.nums);
+      saveForecastPair(sprint, marathon);
+    } catch (_) {
+      // Не мешаем основному приложению, если архив временно не смог обновиться.
+    }
+  }
+
   function modelHtml(model, icon) {
     const changes = model.seq.slice(1).filter((x, i) => x !== model.seq[i]).length;
     return `<div class="sm-card">
@@ -568,11 +747,10 @@
       <div class="section"><span>Вероятное продолжение режима</span></div>
       <div class="sm-regs">${regimeBars(model.pred)}</div>
       <div class="row small">Точных пятёрок: ${model.pred.exact} · близких фрагментов: ${model.pred.near} · переключений учтено: ${model.pred.switchCases}</div>
-      <div class="section"><span>Выход №${Number(draws.at(-1)?.draw || 0) + 1}</span></div>
+      <div class="section"><span>Выход №${Number(draws[model.endIndex]?.draw || 0) + 1}</span></div>
       ${model.cols.map((x, i) => `<div class="sm-line"><b>${i + 1}. ст${x.col}</b> · сейчас ${stateLabel(x.state)} · ${Math.round(x.score * 100)} баллов<br><span class="small">${x.reasons.join(' · ') || 'по режиму цепочки'}</span></div>`).join('')}
       <div class="section"><span>Комбинация чисел</span></div>
       <div class="sm-balls">${model.nums.map(x => `<div class="sm-ball"><b>${pad(x.n)}</b><small>ст${x.col}</small></div>`).join('')}</div>
-      ${model.nums.map(x => `<div class="small sm-why"><b>${pad(x.n)}</b> — ${x.reasons.join(' · ') || 'поддержка столбца'}</div>`).join('')}
     </div>`;
   }
 
@@ -607,13 +785,14 @@
     setTimeout(async () => {
       await loadAutoForecastData();
       const sprint = sprintModel(day);
-      const marathon = marathonModel(day);
+      const marathon = marathonModel(day, sprint.nums);
+      saveForecastPair(sprint, marathon);
       const content = which === 'sprint'
         ? modelHtml(sprint, '🏃')
         : which === 'marathon'
           ? modelHtml(marathon, '🐢')
           : modelHtml(sprint, '🏃') + modelHtml(marathon, '🐢') + agreementHtml(sprint, marathon);
-      box.innerHTML = selector + `<div class="small sm-day-count">За ${selectedDate}: ${day.length} тиражей. Спринт — 2 последних цикла (${sprint.window} тиражей), Марафон — ${Math.min(40, day.length)}.</div>` + content;
+      box.innerHTML = selector + `<div class="small sm-day-count">За ${selectedDate}: ${day.length} тиражей. Спринт — 2 последних цикла (${sprint.window} тиражей), Марафон — ${Math.min(40, day.length)}.</div>` + content + forecastArchiveHtml();
       const select2 = $('smDateSelect');
       if (select2) select2.onchange = e => { selectedDate = e.target.value; render(which); };
       if (which === 'sprint') bindPatternFinder(sprint);
@@ -663,7 +842,8 @@
       .sm-seq{font-size:25px;font-weight:950;color:#83e6a5;letter-spacing:1px;overflow-wrap:anywhere;margin:8px 0}
       .sm-regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.sm-reg{border:1px solid #355275;border-radius:9px;padding:7px 3px;text-align:center}.sm-reg b,.sm-reg span,.sm-reg small{display:block}.sm-reg span{color:#ffd764;font-weight:900}.sm-reg small{color:#9fb0c6;margin-top:2px}.sm-reg.sm-off{opacity:.48}.sm-reg.sm-off span{color:#9fb0c6}
       .sm-chain-list{display:grid;gap:7px}.sm-chain-block{border:1px solid #2a4464;border-radius:10px;padding:9px;background:#101f33}.sm-chain-block b{display:block;margin-bottom:5px}.sm-chain-block span{color:#9fb0c6;font-weight:800}.sm-chain-block .sm-hit{display:inline;font-weight:950;margin-left:2px}.sm-chain-block .sm-hit-first{color:#54e58a}.sm-chain-block .sm-hit-other{color:#63c7ff}.sm-chain-block .sm-hit-miss{color:#ff6b6b}
-      .sm-pattern-box{border:1px solid #2b4668;border-radius:12px;padding:10px;background:#0a1728}.sm-pattern-row{display:flex;gap:8px;margin:8px 0}.sm-pattern-row input{min-width:0;flex:1;background:#102238;color:#fff;border:1px solid #355275;border-radius:9px;padding:10px;font-size:17px;font-weight:800}.sm-pattern-row button{background:#244d78;color:#fff;border:1px solid #4b78a8;border-radius:9px;padding:8px 14px;font-weight:900}.sm-pattern-summary{margin:8px 0;color:#c7d3e3}.sm-pattern-results{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.sm-pattern-chip{border:1px solid #355275;border-radius:9px;text-align:center;padding:7px 3px;background:#102238}.sm-pattern-chip b,.sm-pattern-chip strong,.sm-pattern-chip small{display:block}.sm-pattern-chip b{font-size:18px}.sm-pattern-chip strong{color:#ffd75e}.sm-pattern-chip small{color:#9fb0c6;font-size:11px}.sm-line{border-bottom:1px solid #263c58;padding:8px 2px}.sm-balls{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.sm-ball{border:1px solid #466b48;background:#122c25;border-radius:10px;text-align:center;padding:8px}.sm-ball b{display:block;font-size:24px;color:#8eedaa}.sm-ball small{color:#9fb0c6}.sm-why{margin-top:5px}.sm-agree{margin-top:12px;border:1px solid #6a6036;background:#2b2712;border-radius:12px;padding:11px;color:#ffe18b}
+      .sm-pattern-box{border:1px solid #2b4668;border-radius:12px;padding:10px;background:#0a1728}.sm-pattern-row{display:flex;gap:8px;margin:8px 0}.sm-pattern-row input{min-width:0;flex:1;background:#102238;color:#fff;border:1px solid #355275;border-radius:9px;padding:10px;font-size:17px;font-weight:800}.sm-pattern-row button{background:#244d78;color:#fff;border:1px solid #4b78a8;border-radius:9px;padding:8px 14px;font-weight:900}.sm-pattern-summary{margin:8px 0;color:#c7d3e3}.sm-pattern-results{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.sm-pattern-chip{border:1px solid #355275;border-radius:9px;text-align:center;padding:7px 3px;background:#102238}.sm-pattern-chip b,.sm-pattern-chip strong,.sm-pattern-chip small{display:block}.sm-pattern-chip b{font-size:18px}.sm-pattern-chip strong{color:#ffd75e}.sm-pattern-chip small{color:#9fb0c6;font-size:11px}.sm-line{border-bottom:1px solid #263c58;padding:8px 2px}.sm-balls{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.sm-ball{border:1px solid #466b48;background:#122c25;border-radius:10px;text-align:center;padding:8px}.sm-ball b{display:block;font-size:24px;color:#8eedaa}.sm-ball small{color:#9fb0c6}.sm-agree{margin-top:12px;border:1px solid #6a6036;background:#2b2712;border-radius:12px;padding:11px;color:#ffe18b}
+      .sm-archive{margin-top:12px;border:1px solid #355275;border-radius:12px;background:#0a1728;padding:9px}.sm-archive>summary,.sm-archive-day>summary{cursor:pointer;font-weight:950}.sm-archive-days{display:grid;gap:7px;margin-top:8px}.sm-archive-day{border:1px solid #2b4668;border-radius:10px;padding:8px;background:#101f33}.sm-archive-row{padding:8px 0;border-top:1px solid #263c58}.sm-archive-row:first-of-type{border-top:0}.sm-archive-row>div{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px}.sm-archive-row>div>span:first-child{width:24px}.sm-archive-num{display:inline-flex;align-items:center;gap:2px;border:1px solid #355275;border-radius:8px;padding:4px 6px;background:#102238;font-weight:900}.sm-archive-hit{border-color:#3f8d5a;background:#123023;color:#9af0b3}.sm-archive-hit b{color:#54e58a}
       @media(max-width:420px){.sm-regs{grid-template-columns:repeat(5,1fr)}.sm-reg{font-size:11px}.sm-balls{grid-template-columns:repeat(3,1fr)}}`;
     document.head.appendChild(style);
   }
@@ -691,6 +871,7 @@
         lastKnownDraw = freshLast;
         autoForecastData = null;
         await loadAutoForecastData();
+        captureLatestForecast();
 
         if (typeof window.render === 'function') window.render();
 
@@ -724,6 +905,7 @@
     styles();
     inject();
     startAutoRefresh();
+    captureLatestForecast();
     setTimeout(() => syncHistoryFromGithub(false), 1500);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
