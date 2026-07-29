@@ -295,6 +295,12 @@ function normDate(v){
  return v.slice(0,10);
 }
 function showDate(v){const p=normDate(v).split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:v}
+function dateKey(v){
+ v=String(v||'').trim();
+ const short=v.match(/^(\d{2})[.\-/](\d{2})[.\-/](\d{2})$/);
+ if(short)return `20${short[3]}-${short[2]}-${short[1]}`;
+ return normDate(v);
+}
 function normTime(v){return String(v||'').match(/\d{1,2}:\d{2}(?::\d{2})?/)?.[0]||String(v||'')}
 function valid(o){
  const draw=Number(o.draw??o.number??o.drawNumber??o.id);
@@ -400,7 +406,7 @@ function renderCards(){
 }
 function minutes(t){const m=normTime(t).match(/(\d+):(\d+)/);return m?+m[1]*60 + +m[2]:0}
 function renderChains(){
- const date=$('chainDate').value||draws.at(-1)?.date||'',day=draws.filter(d=>normDate(d.date)===normDate(date));
+ const date=$('chainDate').value||draws.at(-1)?.date||'',day=draws.filter(d=>dateKey(d.date)===dateKey(date));
  if(!day.length){$('chains').innerHTML='<div class="card small">За выбранную дату данных нет.</div>';return}
  const blocks=[];let cur=[];
  day.forEach(d=>{if(cur.length&&minutes(d.time)-minutes(cur.at(-1).time)>30){blocks.push(cur);cur=[]}cur.push(d);if(cur.length===5){blocks.push(cur);cur=[]}});
@@ -716,7 +722,7 @@ async function runQualityAudit(){
 
 function render(){
  $('status').textContent=draws.length?`v7.2 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.2 · база: 0';
- if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
+ if(draws.length&&!$('chainDate').value)$('chainDate').value=dateKey(draws.at(-1).date);
  renderCards();renderChains();renderArchive();renderLivePredictionCheck();renderPredictionHistory()
 }
 async function update(){
