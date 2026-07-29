@@ -208,7 +208,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <form method="dialog">
     <div class="section" style="margin-top:0"><span>Настройки обновления</span><button class="icon">✕</button></div>
     <label class="small">Адрес источника тиражей</label>
-    <input id="sourceUrl" value="https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws">
+    <input id="sourceUrl" value="./keno-history.json">
     <div style="height:8px"></div>
     <label class="small">Проверять автоматически</label>
     <select id="interval">
@@ -230,6 +230,21 @@ const pad=n=>String(n).padStart(2,'0');
 const column=n=>n%10===0?10:n%10;
 let draws=[],mode='fall',timer=null;
 const analysisCache=new WeakMap();
+const DEFAULT_DRAW_SOURCE='./keno-history.json';
+const LEGACY_DRAW_SOURCE='https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws';
+
+function drawSourceUrl(){
+ const saved=String(localStorage.getItem('pozitron_v5_url')||'').trim();
+ if(!saved||saved===LEGACY_DRAW_SOURCE||saved.includes('pozitron-keno-v3.netlify.app')){
+  localStorage.setItem('pozitron_v5_url',DEFAULT_DRAW_SOURCE);
+  return DEFAULT_DRAW_SOURCE
+ }
+ return saved
+}
+function freshUrl(url){
+ const joiner=url.includes('?')?'&':'?';
+ return `${url}${joiner}v=${Date.now()}`
+}
 
 function normDate(v){
  v=String(v||'').trim();
@@ -665,11 +680,10 @@ function render(){
  renderCards();renderChains();renderArchive();renderLivePredictionCheck();renderPredictionHistory()
 }
 async function update(){
- const url=(localStorage.getItem('pozitron_v5_url')||'https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws').trim();
- if(!url){$('status').textContent='Источник не настроен — нажмите ⚙';return}
+ const url=drawSourceUrl();
  $('status').textContent='Проверяю новые тиражи…';
  try{
-  const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+  const r=await fetch(freshUrl(url),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
   const arr=parse(await r.text());if(!arr.length)throw new Error('нет распознанных тиражей');
   const added=merge(arr);render();$('status').textContent=`Добавлено ${added} · всего ${draws.length}`
  }catch(e){render();$('status').textContent='Обновление не выполнено: '+e.message}
@@ -688,8 +702,8 @@ $('findBtn').onclick=()=>{const n=Number($('searchDraw').value),d=draws.find(x=>
 $('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const added=merge(parse(r.result));render();$('status').textContent=`Импорт: добавлено ${added} · всего ${draws.length}`};r.readAsText(f,'UTF-8')};
 $('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify({version:'7.2',exportedAt:new Date().toISOString(),draws},null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='ПОЗИТРОН_КЕНО_v7_2_БАЗА.json';a.click();URL.revokeObjectURL(u)};
 $('sync').onclick=update;$('sync2').onclick=update;
-$('settingsBtn').onclick=()=>{$('sourceUrl').value=localStorage.getItem('pozitron_v5_url')||'https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws';$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
-$('saveSettings').onclick=()=>{localStorage.setItem('pozitron_v5_url',$('sourceUrl').value.trim());localStorage.setItem('pozitron_v5_interval',$('interval').value);auto()};
+$('settingsBtn').onclick=()=>{$('sourceUrl').value=drawSourceUrl();$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
+$('saveSettings').onclick=()=>{localStorage.setItem('pozitron_v5_url',$('sourceUrl').value.trim()||DEFAULT_DRAW_SOURCE);localStorage.setItem('pozitron_v5_interval',$('interval').value);auto()};
 $('chainDate').onchange=renderChains;
 const forecastHistoryToggle=$('forecastHistoryToggle');
 const forecastHistoryContent=$('forecastHistoryContent');
