@@ -231,19 +231,59 @@ const column=n=>n%10===0?10:n%10;
 let draws=[],mode='fall',timer=null;
 const analysisCache=new WeakMap();
 const DEFAULT_DRAW_SOURCE='./keno-history.json';
-const LEGACY_DRAW_SOURCE='https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws';
+const LEGACY_SOURCE_PART='pozitron-keno-v3.netlify.app';
+const CACHE_FIX_KEY='pozitron_v72_cache_fix_20260729_2';
 
-function drawSourceUrl(){
+function configuredDrawSource(){
  const saved=String(localStorage.getItem('pozitron_v5_url')||'').trim();
- if(!saved||saved===LEGACY_DRAW_SOURCE||saved.includes('pozitron-keno-v3.netlify.app')){
+ if(!saved||saved.includes(LEGACY_SOURCE_PART)){
   localStorage.setItem('pozitron_v5_url',DEFAULT_DRAW_SOURCE);
   return DEFAULT_DRAW_SOURCE
  }
  return saved
 }
-function freshUrl(url){
- const joiner=url.includes('?')?'&':'?';
- return `${url}${joiner}v=${Date.now()}`
+function drawSourceCandidates(){
+ const configured=configuredDrawSource();
+ const candidates=[
+  configured,
+  new URL('keno-history.json',document.baseURI).href,
+  'https://arsazet17.github.io/pozitron-keno-v72/keno-history.json',
+  'https://raw.githubusercontent.com/arsazet17/pozitron-keno-v72/main/keno-history.json'
+ ];
+ return [...new Set(candidates.filter(Boolean))]
+}
+async function removeLegacyCacheOnce(){
+ if(localStorage.getItem(CACHE_FIX_KEY)==='1')return false;
+ let changed=false;
+ try{
+  if('serviceWorker' in navigator){
+   const regs=await navigator.serviceWorker.getRegistrations();
+   for(const reg of regs){changed=(await reg.unregister())||changed}
+  }
+ }catch(_){}
+ try{
+  if('caches' in window){
+   const keys=await caches.keys();
+   for(const key of keys){if(/pozitron|keno|v7/i.test(key)){changed=(await caches.delete(key))||changed}}
+  }
+ }catch(_){}
+ localStorage.setItem(CACHE_FIX_KEY,'1');
+ if(changed){location.reload();return true}
+ return false
+}
+async function fetchDrawHistory(){
+ let lastError=new Error('источник недоступен');
+ for(const url of drawSourceCandidates()){
+  try{
+   const response=await fetch(url,{cache:'no-store',mode:'cors',credentials:'same-origin'});
+   if(!response.ok)throw new Error('HTTP '+response.status);
+   const text=await response.text();
+   const items=parse(text);
+   if(!items.length)throw new Error('нет распознанных тиражей');
+   return {items,url}
+  }catch(error){lastError=error}
+ }
+ throw lastError
 }
 
 function normDate(v){
@@ -680,13 +720,18 @@ function render(){
  renderCards();renderChains();renderArchive();renderLivePredictionCheck();renderPredictionHistory()
 }
 async function update(){
- const url=drawSourceUrl();
  $('status').textContent='Проверяю новые тиражи…';
  try{
-  const r=await fetch(freshUrl(url),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
-  const arr=parse(await r.text());if(!arr.length)throw new Error('нет распознанных тиражей');
-  const added=merge(arr);render();$('status').textContent=`Добавлено ${added} · всего ${draws.length}`
- }catch(e){render();$('status').textContent='Обновление не выполнено: '+e.message}
+  const result=await fetchDrawHistory();
+  const added=merge(result.items);
+  render();
+  $('status').textContent=added?`Добавлено ${added} · всего ${draws.length}`:`База актуальна · всего ${draws.length}`
+ }catch(e){
+  render();
+  $('status').textContent=draws.length
+   ?`v7.2 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`
+   :'Нет связи с файлом истории. Повторите обновление позже.'
+ }
 }
 function auto(){
  clearInterval(timer);timer=null;
@@ -702,7 +747,7 @@ $('findBtn').onclick=()=>{const n=Number($('searchDraw').value),d=draws.find(x=>
 $('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const added=merge(parse(r.result));render();$('status').textContent=`Импорт: добавлено ${added} · всего ${draws.length}`};r.readAsText(f,'UTF-8')};
 $('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify({version:'7.2',exportedAt:new Date().toISOString(),draws},null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='ПОЗИТРОН_КЕНО_v7_2_БАЗА.json';a.click();URL.revokeObjectURL(u)};
 $('sync').onclick=update;$('sync2').onclick=update;
-$('settingsBtn').onclick=()=>{$('sourceUrl').value=drawSourceUrl();$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
+$('settingsBtn').onclick=()=>{$('sourceUrl').value=configuredDrawSource();$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
 $('saveSettings').onclick=()=>{localStorage.setItem('pozitron_v5_url',$('sourceUrl').value.trim()||DEFAULT_DRAW_SOURCE);localStorage.setItem('pozitron_v5_interval',$('interval').value);auto()};
 $('chainDate').onchange=renderChains;
 const forecastHistoryToggle=$('forecastHistoryToggle');
@@ -715,7 +760,12 @@ if(forecastHistoryToggle&&forecastHistoryContent){
   forecastHistoryToggle.textContent=isOpen?'📋 Прогнозы 5 тир ▶':'📋 Прогнозы 5 тир ▼';
  };
 }
-load();render();auto();setTimeout(update,800);
+async function startApp(){
+ load();render();auto();
+ const reloading=await removeLegacyCacheOnce();
+ if(!reloading)setTimeout(update,800)
+}
+startApp();
 </script>
 <script src="sprint-marathon.js"></script>
 <script src="max-retro.js"></script>
