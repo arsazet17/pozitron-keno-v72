@@ -114,25 +114,72 @@ function addSwitchEvidence(draws, seq, minIndex, maxIndex, support, stats) {
   }
 }
 
-function currentAvailability(draws) {
-  const current = counts(draws.at(-1));
+function currentAvailability(draws, endIndex = draws.length - 1) {
+  const current = counts(draws[endIndex]);
   const byState = Array.from({ length: 5 }, () => []);
   for (let col = 1; col <= 10; col += 1) byState[Math.min(4, current[col])].push(col);
   return byState;
 }
 
-function analogForecast(draws, seq, minIndex, maxIndex) {
+function profileKey(available) {
+  return available.map(cols => cols.length).join('-');
+}
+
+function densityProfileForecast(draws, endIndex, maxIndex) {
+  const available = currentAvailability(draws, endIndex);
+  const baseProbs = available.map(cols => cols.length / 10);
+  const targetKey = profileKey(available);
+  const countsNext = Array(5).fill(0);
+  let matches = 0;
+
+  for (let currentIndex = 0; currentIndex <= maxIndex; currentIndex += 1) {
+    const historicalAvailable = currentAvailability(draws, currentIndex);
+    if (profileKey(historicalAvailable) !== targetKey) continue;
+    const nextState = stateBeforeWinner(draws, currentIndex + 1);
+    if (nextState === null) continue;
+    countsNext[nextState] += 1;
+    matches += 1;
+  }
+
+  // Точное распределение плотности сглаживаем базой:
+  // если в режиме 3 находятся 4 столбца, его естественная база — 40%.
+  const alpha = 20;
+  const profileProbs = countsNext.map((count, state) =>
+    (count + alpha * baseProbs[state]) / (matches + alpha)
+  );
+
+  return { available, baseProbs, profileProbs, profileMatches: matches };
+}
+
+function analogForecast(draws, seq, minIndex, maxIndex, endIndex = draws.length - 1) {
   const support = Array(5).fill(0);
   const stats = { exact: 0, near: 0, switchCases: 0, weight: 0 };
   addSuffixEvidence(draws, seq, minIndex, maxIndex, support, stats);
   addSwitchEvidence(draws, seq, minIndex, maxIndex, support, stats);
   addHistoricalBaseline(draws, support, minIndex, maxIndex, Math.max(0.35, stats.weight * 0.25));
-  const available = currentAvailability(draws);
-  const filtered = support.map((v, s) => available[s].length ? Math.max(0, v) : 0);
-  const total = filtered.reduce((a, b) => a + b, 0);
-  const probs = total ? filtered.map(v => v / total) : available.map(x => x.length ? 1 : 0);
-  const norm = probs.reduce((a, b) => a + b, 0) || 1;
-  return { probs: probs.map(v => v / norm), available, ...stats };
+
+  const density = densityProfileForecast(draws, endIndex, maxIndex);
+  const supportTotal = support.reduce((a, b) => a + b, 0);
+  const chainProbs = supportTotal
+    ? support.map(v => v / supportTotal)
+    : density.baseProbs.slice();
+
+  // 90% — реальное количество столбцов в каждом режиме и точные профили
+  // всей базы; 10% — цепочки 2–5 и переключения.
+  const mixed = density.profileProbs.map((v, state) =>
+    density.available[state].length ? 0.90 * v + 0.10 * chainProbs[state] : 0
+  );
+  const total = mixed.reduce((a, b) => a + b, 0) || 1;
+  const probs = mixed.map(v => v / total);
+
+  return {
+    probs,
+    available: density.available,
+    baseProbs: density.baseProbs,
+    profileProbs: density.profileProbs,
+    profileMatches: density.profileMatches,
+    ...stats
+  };
 }
 
 function winnerStreak(draws, col) {
@@ -150,43 +197,166 @@ function preservedWinnerFrame(draws, col) {
   return prev.filter(n => last.has(n)).length;
 }
 
-function rankColumns(draws, pred, window) {
-  const current = counts(draws.at(-1));
+function recentWinnerRate(draws, col, endIndex, window) {
+  const start = Math.max(0, endIndex - window + 1);
+  let hits = 0;
+  for (let i = start; i <= endIndex; i += 1) if (winner(draws[i]) === col) hits += 1;
+  return hits / Math.max(1, endIndex - start + 1);
+}
+
+function densityMomentum(draws, col, endIndex) {
+  if (endIndex < 2) return 0;
+  const recentStart = Math.max(0, endIndex - 3);
+  const previousEnd = recentStart - 1;
+  const previousStart = Math.max(0, previousEnd - 3);
+  let recentSum = 0, recentN = 0, previousSum = 0, previousN = 0;
+  for (let i = recentStart; i <= endIndex; i += 1) {
+    recentSum += counts(draws[i])[col];
+    recentN += 1;
+  }
+  for (let i = previousStart; i <= previousEnd; i += 1) {
+    previousSum += counts(draws[i])[col];
+    previousN += 1;
+  }
+  return recentSum / Math.max(1, recentN) - previousSum / Math.max(1, previousN);
+}
+
+function allocateStateSlots(pred, slots = 4) {
+  const availableCounts = pred.available.map(cols => cols.length);
+  const raw = pred.probs.map(p => p * slots);
+  const quota = raw.map((v, state) => Math.min(availableCounts[state], Math.floor(v)));
+  let left = slots - quota.reduce((a, b) => a + b, 0);
+
+  const order = [0, 1, 2, 3, 4].sort((a, b) =>
+    (raw[b] - Math.floor(raw[b])) - (raw[a] - Math.floor(raw[a]))
+    || pred.probs[b] - pred.probs[a]
+    || availableCounts[b] - availableCounts[a]
+    || a - b
+  );
+
+  while (left > 0) {
+    let added = false;
+    for (const state of order) {
+      if (quota[state] >= availableCounts[state]) continue;
+      quota[state] += 1;
+      left -= 1;
+      added = true;
+      if (!left) break;
+    }
+    if (!added) break;
+  }
+  return quota;
+}
+
+function rankColumns(draws, pred, type, endIndex = draws.length - 1) {
+  const current = counts(draws[endIndex]);
   const rows = [];
+  const sprint = type === 'sprint';
+
   for (let col = 1; col <= 10; col += 1) {
     const state = Math.min(4, current[col]);
-    const regime = pred.probs[state] || 0;
-    let shape = 0;
-    const nums = (draws.at(-1).balls || []).filter(n => colOf(n) === col);
-    if (state === 0) shape += 0.20;
-    if (state === 1) shape += 0.35;
-    if (state === 2) shape += 0.50;
-    if (state === 3) shape += 0.45;
-    if (state === 4) shape += 0.38;
-    if (nums.some(n => nums.includes(n + 10))) shape += 0.30;
-    const history = draws.slice(-window).map(d => counts(d)[col]);
-    if (history.at(-1) - (history[0] || 0) > 0) shape += 0.20;
-    const streak = winnerStreak(draws, col);
-    if (streak >= 1) shape += Math.min(0.45, 0.18 + streak * 0.10);
-    const preserved = preservedWinnerFrame(draws, col);
-    if (preserved > 0 && winner(draws.at(-2)) === col) shape += Math.min(0.35, preserved * 0.12);
-    rows.push({ col, state, score: regime * 3 + shape });
+    const groupSize = Math.max(1, pred.available[state]?.length || 0);
+    const perColumnRegime = (pred.probs[state] || 0) / groupSize;
+
+    // Спринт и Марафон используют разные горизонты.
+    const activity = sprint
+      ? 0.50 * recentWinnerRate(draws, col, endIndex, 20)
+        + 0.50 * recentWinnerRate(draws, col, endIndex, 40)
+      : 0.70 * recentWinnerRate(draws, col, endIndex, 40)
+        + 0.30 * recentWinnerRate(draws, col, endIndex, 200);
+
+    // Накопление плотности — только небольшой дополнительный сигнал,
+    // а не причина задвигать остальные режимы.
+    const momentum = Math.max(-2, Math.min(2, densityMomentum(draws, col, endIndex)));
+    const score = perColumnRegime * 100 + activity * 10 + momentum * 0.02;
+    rows.push({ col, state, score, regime: pred.probs[state] || 0, perColumnRegime, activity, momentum });
   }
-  return rows.sort((a, b) => b.score - a.score || b.regime - a.regime || a.col - b.col);
+
+  const quota = allocateStateSlots(pred, 4);
+  const selected = [];
+  const selectedSet = new Set();
+
+  for (let state = 0; state <= 4; state += 1) {
+    const group = rows
+      .filter(row => row.state === state)
+      .sort((a, b) => b.activity - a.activity || b.momentum - a.momentum || a.col - b.col);
+    for (const row of group.slice(0, quota[state])) {
+      selected.push(row);
+      selectedSet.add(row.col);
+    }
+  }
+
+  selected.sort((a, b) => b.score - a.score || a.col - b.col);
+  const rest = rows
+    .filter(row => !selectedSet.has(row.col))
+    .sort((a, b) => b.score - a.score || a.col - b.col);
+
+  return selected.concat(rest);
+}
+
+function drawStamp(draw) {
+  const dm = String(draw?.date || '').match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/);
+  const tm = String(draw?.time || '').match(/(\d{1,2}):(\d{2})/);
+  if (!dm || !tm) return null;
+  const year = Number(dm[3]) < 100 ? 2000 + Number(dm[3]) : Number(dm[3]);
+  return new Date(year, Number(dm[2]) - 1, Number(dm[1]), Number(tm[1]), Number(tm[2])).getTime();
+}
+
+function splitIntoCycles(draws, indices) {
+  const cycles = [];
+  let current = [];
+  for (const index of indices) {
+    if (!current.length) {
+      current.push(index);
+      continue;
+    }
+    const prevIndex = current.at(-1);
+    const prevStamp = drawStamp(draws[prevIndex]);
+    const curStamp = drawStamp(draws[index]);
+    const gapMinutes = prevStamp !== null && curStamp !== null
+      ? Math.round((curStamp - prevStamp) / 60000)
+      : 30;
+    const newCycle = gapMinutes > 35
+      || draws[index]?.date !== draws[prevIndex]?.date
+      || current.length >= 5;
+    if (newCycle) {
+      cycles.push(current);
+      current = [index];
+    } else {
+      current.push(index);
+    }
+  }
+  if (current.length) cycles.push(current);
+  return cycles;
 }
 
 function makeModel(draws, type) {
   const end = draws.length - 1;
+  const latestDate = draws[end]?.date;
+  const dayIndices = [];
+  for (let i = 0; i <= end; i += 1) if (draws[i]?.date === latestDate) dayIndices.push(i);
+
   const sprint = type === 'sprint';
-  const seq = sequence(draws, end, sprint ? 5 : 25);
-  const pred = analogForecast(draws, sprint ? seq : seq.slice(-10), 1, end - 1);
-  const ranked = rankColumns(draws, pred, sprint ? 8 : 30);
+  const chosen = sprint
+    ? splitIntoCycles(draws, dayIndices).slice(-2).flat()
+    : dayIndices.slice(-40);
+  const usable = chosen.length ? chosen : [end];
+  const seq = usable.map(i => stateBeforeWinner(draws, i)).filter(v => v !== null);
+  const analysisSeq = sprint ? seq : seq.slice(-10);
+  const pred = analogForecast(draws, analysisSeq, 1, end - 1, end);
+  const ranked = rankColumns(draws, pred, type, end);
+
   return {
     columns: ranked.slice(0, 4).map(x => x.col),
-    regimes: pred.probs.map((p, state) => ({ state: state === 4 ? '4+' : String(state), percent: Math.round(p * 100), columns: pred.available[state] })),
+    regimes: pred.probs.map((p, state) => ({
+      state: state === 4 ? '4+' : String(state),
+      percent: Math.round(p * 100),
+      columns: pred.available[state]
+    })),
     exact: pred.exact,
     near: pred.near,
-    switchCases: pred.switchCases
+    switchCases: pred.switchCases,
+    profileMatches: pred.profileMatches
   };
 }
 
