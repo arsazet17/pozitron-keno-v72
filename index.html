@@ -63,6 +63,10 @@ button,input,select{font:inherit}
 .break{margin-top:7px;padding:6px;border-radius:8px;text-align:center;background:#302812;border:1px solid #6e5b20;color:#ffe48b;font-weight:850}
 .open{font-size:12px;color:var(--muted);margin-top:6px}
 .tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px}
+.tools.main-tools{grid-template-columns:repeat(3,minmax(0,1fr))}
+.main-tools .tool{min-width:0;min-height:48px;font-size:13px;line-height:1.2;white-space:normal}
+.main-tools .sm-split{display:grid;grid-template-columns:1fr 1fr;gap:6px;min-width:0}
+.main-tools .sm-split .tool{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;font-size:28px;padding:8px 3px;white-space:nowrap}
 .tool{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:9px 3px;font-size:12px;font-weight:800}
 .panel{display:none}.panel.show{display:block}
 .row{background:#101f33;border:1px solid #263e5b;border-radius:9px;padding:9px;margin-top:6px;font-size:13px}
@@ -140,13 +144,24 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div id="chains"></div>
 
   <div class="section"><span>Инструменты</span></div>
-  <div class="tools">
+  <div class="tools main-tools">
     <button class="tool" data-panel="searchPanel">🔍 Поиск</button>
     <button class="tool" data-panel="analogsPanel">🎯 Аналоги+</button>
     <button class="tool" data-panel="archivePanel">📅 Архив</button>
     <button class="tool" data-panel="dataPanel">💾 База</button>
-    <button class="tool" data-panel="infoPanel">ℹ️ О v7.2</button>
+    <div class="sm-split">
+      <button id="sprintBtn" class="tool" type="button" aria-label="Спринт" title="Спринт">🏃</button>
+      <button id="marathonBtn" class="tool" type="button" aria-label="Марафон" title="Марафон">🐢</button>
+    </div>
+    <button id="maxRetroToolBtn" class="tool" type="button">🧠 AI Переходов ▶</button>
   </div>
+
+  <section id="sprintMarathonPanel" class="card panel" aria-live="polite">
+    <div class="sm-title">🏃 Спринт / 🐢 Марафон</div>
+    <div id="sprintMarathonResult">
+      <div class="small">Выберите «Спринт» или «Марафон».</div>
+    </div>
+  </section>
 
   <section id="searchPanel" class="card panel">
     <div class="flex">
@@ -773,7 +788,7 @@ async function startApp(){
 }
 startApp();
 </script>
-<script src="sprint-marathon.js?v=20260729-1215"></script>
-<script src="max-retro.js"></script>
+<script src="sprint-marathon.js?v=20260803-keno72-algo210-original-layout"></script>
+<script src="max-retro.js?v=20260803-original-layout"></script>
 </body>
 </html>

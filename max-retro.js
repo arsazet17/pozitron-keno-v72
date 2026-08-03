@@ -410,30 +410,38 @@
   }
 
   function injectInterface() {
-    if ($(BUTTON_ID) || $(MODULE_ID)) return;
-    const tools = document.querySelector('.tools');
+    const tools = document.querySelector('.tools.main-tools') || document.querySelector('.tools');
     if (!tools) return;
-    const button = document.createElement('button');
-    button.id = BUTTON_ID;
-    button.className = 'tool';
-    button.type = 'button';
-    button.textContent = '🧠 AI Переходов ▶';
-    tools.appendChild(button);
+    let button = $(BUTTON_ID);
+    if (!button) {
+      button = document.createElement('button');
+      button.id = BUTTON_ID;
+      button.className = 'tool';
+      button.type = 'button';
+      button.textContent = '🧠 AI Переходов ▶';
+      tools.appendChild(button);
+    }
 
-    const section = document.createElement('section');
-    section.id = MODULE_ID;
-    section.className = 'card panel';
-    section.innerHTML = `
-      <div class="tr-title">🧠 AI Переходов v7.2</div>
-      <div class="small" style="margin-top:5px">Ретропоиск по всей базе: переходы, цепочки, диапазоны 1–4, 5–8… 77–80, шаговость, чередование, одиночные и пустые столбы.</div>
-      <div class="tr-controls">
-        <select id="${WINDOW_ID}"><option value="3">Окно 3 тиража</option><option value="5" selected>Окно 5 тиражей</option><option value="7">Окно 7 тиражей</option></select>
-        <select id="${LIMIT_ID}"><option value="12">12 аналогов</option><option value="16" selected>16 аналогов</option><option value="24">24 аналога</option><option value="40">40 аналогов</option></select>
-        <button id="${RUN_ID}" class="tool" type="button">🔎 Анализировать</button>
-      </div>
-      <div id="${RESULT_ID}"></div>`;
-    const searchPanel = $('searchPanel');
-    searchPanel?.parentNode?.insertBefore(section, searchPanel);
+    let section = $(MODULE_ID);
+    if (!section) {
+      section = document.createElement('section');
+      section.id = MODULE_ID;
+      section.className = 'card panel';
+      section.innerHTML = `
+        <div class="tr-title">🧠 AI Переходов v7.2</div>
+        <div class="small" style="margin-top:5px">Ретропоиск по всей базе: переходы, цепочки, диапазоны 1–4, 5–8… 77–80, шаговость, чередование, одиночные и пустые столбы.</div>
+        <div class="tr-controls">
+          <select id="${WINDOW_ID}"><option value="3">Окно 3 тиража</option><option value="5" selected>Окно 5 тиражей</option><option value="7">Окно 7 тиражей</option></select>
+          <select id="${LIMIT_ID}"><option value="12">12 аналогов</option><option value="16" selected>16 аналогов</option><option value="24">24 аналога</option><option value="40">40 аналогов</option></select>
+          <button id="${RUN_ID}" class="tool" type="button">🔎 Анализировать</button>
+        </div>
+        <div id="${RESULT_ID}"></div>`;
+      const searchPanel = $('searchPanel');
+      searchPanel?.parentNode?.insertBefore(section, searchPanel);
+    }
+
+    if (button.dataset.maxRetroBound === '1') return;
+    button.dataset.maxRetroBound = '1';
 
     button.addEventListener('click', () => {
       const open = !section.classList.contains('show');

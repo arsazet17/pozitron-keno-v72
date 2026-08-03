@@ -8,6 +8,7 @@
   let autoForecastData = null;
   let winnerCache = [];
   let stateCache = [];
+  const ALGORITHM_VERSION = '2.1.0';
   const FORECAST_ARCHIVE_KEY = 'pozitron_sm_number_archive_v2';
   const FORECAST_ARCHIVE_LIMIT = 2000;
 
@@ -289,10 +290,10 @@ function currentAvailability(endIndex) {
       ? support.map(v => v / supportTotal)
       : density.baseProbs.slice();
 
-    // Главный расчёт — фактическое распределение плотности в текущем тираже.
-    // Цепочка режимов остаётся небольшой поправкой, а не управляет всем прогнозом.
+    // Плотность последнего тиража — только небольшая поправка. Основной вес
+    // получают повторяющиеся цепочки и переключения из архива.
     const mixed = density.profileProbs.map((v, state) =>
-      density.available[state].length ? 0.90 * v + 0.10 * chainProbs[state] : 0
+      density.available[state].length ? 0.30 * v + 0.70 * chainProbs[state] : 0
     );
     const total = mixed.reduce((a, b) => a + b, 0) || 1;
     const probs = mixed.map(v => v / total);
@@ -356,31 +357,34 @@ function currentAvailability(endIndex) {
     return { score, reasons: [] };
   }
 
-  function marathonNumberScore(n, col, window, endIndex, sprintSet) {
+  function marathonNumberScore(n, col, endIndex) {
     const lastSet = new Set(draws[endIndex]?.balls || []);
-    const start = Math.max(0, endIndex - window + 1);
-    const recent = draws.slice(start, endIndex + 1);
-    const hits = recent.filter(d => (d?.balls || []).includes(n)).length;
-    const gap = recentGap(n, endIndex, Math.max(12, window));
-    const half = Math.max(1, Math.floor(recent.length / 2));
-    const earlyHits = recent.slice(0, half).filter(d => (d?.balls || []).includes(n)).length;
-    const lateHits = recent.slice(half).filter(d => (d?.balls || []).includes(n)).length;
+    const recent80 = draws.slice(Math.max(0, endIndex - 79), endIndex + 1);
+    const long240 = draws.slice(Math.max(0, endIndex - 239), endIndex + 1);
+    const rate80 = recent80.filter(d => (d?.balls || []).includes(n)).length / Math.max(1, recent80.length);
+    const rate240 = long240.filter(d => (d?.balls || []).includes(n)).length / Math.max(1, long240.length);
+    const gap = recentGap(n, endIndex, 60);
+    const half = Math.max(1, Math.floor(recent80.length / 2));
+    const earlyRate = recent80.slice(0, half).filter(d => (d?.balls || []).includes(n)).length / half;
+    const latePart = recent80.slice(half);
+    const lateRate = latePart.filter(d => (d?.balls || []).includes(n)).length / Math.max(1, latePart.length);
     let freshReturns = 0;
 
-    for (let i = Math.max(start + 1, 1); i <= endIndex; i += 1) {
+    for (let i = Math.max(1, endIndex - 79); i <= endIndex; i += 1) {
       const before = new Set(draws[i - 1]?.balls || []);
       const current = new Set(draws[i]?.balls || []);
       if (!before.has(n) && current.has(n)) freshReturns += 1;
     }
 
-    let score = 0;
-    // Марафон смотрит длинную историю, возвраты и пропуски, а не копирует Спринт.
-    score += (hits / Math.max(1, recent.length)) * 0.90;
-    score += Math.min(1.20, gap / 10);
-    score += Math.min(0.75, freshReturns * 0.12);
-    if (lateHits > earlyHits) score += 0.30;
-    if (lastSet.has(n)) score -= 0.28;
-    if (sprintSet.has(n)) score -= 0.65;
+    // Марафон оценивает устойчивость на длинных окнах. Пропуск остаётся
+    // небольшой поправкой и не может вытеснить частоту и стабильность.
+    const stability = 1 - Math.min(1, Math.abs(rate80 - rate240) * 5);
+    const trend = Math.max(-0.20, Math.min(0.20, lateRate - earlyRate));
+    let score = rate80 * 1.45 + rate240 * 1.25 + stability * 0.28;
+    score += Math.min(0.32, gap * 0.035);
+    score += Math.min(0.24, freshReturns * 0.025);
+    score += trend * 0.70;
+    if (lastSet.has(n)) score -= 0.12;
 
     return { score, reasons: [] };
   }
@@ -408,6 +412,42 @@ function recentWinnerRate(col, endIndex, window) {
       previousN += 1;
     }
     return recentSum / Math.max(1, recentN) - previousSum / Math.max(1, previousN);
+  }
+
+  function transitionWinnerRate(col, endIndex, window) {
+    if (endIndex < 2) return 0.10;
+    const previousWinner = winnerAt(endIndex);
+    const start = Math.max(1, endIndex - window + 1);
+    let cases = 0;
+    let hits = 0;
+    for (let i = start; i <= endIndex; i += 1) {
+      if (winnerAt(i - 1) !== previousWinner) continue;
+      cases += 1;
+      if (winnerAt(i) === col) hits += 1;
+    }
+    return (hits + 2) / (cases + 20);
+  }
+
+  function stableTie(col, endIndex, salt) {
+    let x = (Number(draws[endIndex]?.draw) || endIndex + 1) ^ Math.imul(col + salt, 0x9e3779b1);
+    x ^= x >>> 16;
+    x = Math.imul(x, 0x85ebca6b);
+    x ^= x >>> 13;
+    return (x >>> 0) / 4294967296;
+  }
+
+  function signalFromRows(rows) {
+    const fourth = rows[3]?.score ?? 0;
+    const fifth = rows[4]?.score ?? fourth;
+    const first = rows[0]?.score ?? fourth;
+    const margin = Math.max(0, fourth - fifth);
+    const spread = Math.max(0, first - fifth);
+    const score = Math.max(0, Math.min(1, margin / 1.5 * 0.65 + spread / 5 * 0.35));
+    return {
+      signal: score >= 0.62 ? 'сильный' : score >= 0.34 ? 'средний' : 'слабый',
+      signalScore: Number(score.toFixed(3)),
+      margin: Number(margin.toFixed(4))
+    };
   }
 
   function allocateStateSlots(pred, slots = 4) {
@@ -446,61 +486,43 @@ function recentWinnerRate(col, endIndex, window) {
       const state = Math.min(4, current[col]);
       const groupSize = Math.max(1, pred.available[state]?.length || 0);
       const perColumnRegime = (pred.probs[state] || 0) / groupSize;
-      const activity = sprint
-        ? 0.50 * recentWinnerRate(col, endIndex, 20)
-          + 0.50 * recentWinnerRate(col, endIndex, 40)
-        : 0.70 * recentWinnerRate(col, endIndex, 40)
-          + 0.30 * recentWinnerRate(col, endIndex, 200);
+      const rate12 = recentWinnerRate(col, endIndex, 12);
+      const rate30 = recentWinnerRate(col, endIndex, 30);
+      const rate80 = recentWinnerRate(col, endIndex, 80);
+      const rate240 = recentWinnerRate(col, endIndex, 240);
+      const transition = transitionWinnerRate(col, endIndex, sprint ? 160 : 600);
       const momentum = Math.max(-2, Math.min(2, densityMomentum(col, endIndex)));
-      const score = perColumnRegime * 100 + activity * 10 + momentum * 0.02;
+      const stability = 1 - Math.min(1, Math.abs(rate80 - rate240) * 8);
+      const activity = sprint ? 0.65 * rate12 + 0.35 * rate30 : 0.55 * rate80 + 0.45 * rate240;
+      const score = sprint
+        ? activity * 55 + transition * 25 + perColumnRegime * 12 + momentum * 1.5
+        : activity * 60 + transition * 20 + stability * 3 + perColumnRegime * 5;
 
       const reasons = [];
-      reasons.push(`режим ${stateLabel(state)}: ${pred.available[state]?.length || 0} ст.`);
-      if (momentum > 0.35) reasons.push('набор плотности');
-      if (momentum < -0.35) reasons.push('сброс плотности');
-      rows.push({ col, state, score, reasons, regime: pred.probs[state] || 0, perColumnRegime, activity, momentum });
+      reasons.push(sprint ? 'короткий горизонт 12–30 тир.' : 'длинный горизонт 80–240 тир.');
+      reasons.push(`переход ${Math.round(transition * 100)}%`);
+      reasons.push(`режим ${stateLabel(state)} — малый вес`);
+      rows.push({
+        col, state, score: score + stableTie(col, endIndex, sprint ? 17 : 53) * 0.0001,
+        reasons, regime: pred.probs[state] || 0, perColumnRegime, activity, transition, momentum, stability
+      });
     }
-
-    const quota = allocateStateSlots(pred, 4);
-    const selected = [];
-    const selectedSet = new Set();
-
-    for (let state = 0; state <= 4; state += 1) {
-      const group = rows
-        .filter(row => row.state === state)
-        .sort((a, b) => b.activity - a.activity || b.momentum - a.momentum || a.col - b.col);
-      for (const row of group.slice(0, quota[state])) {
-        selected.push(row);
-        selectedSet.add(row.col);
-      }
-    }
-
-    selected.sort((a, b) => b.score - a.score || a.col - b.col);
-    const rest = rows
-      .filter(row => !selectedSet.has(row.col))
-      .sort((a, b) => b.score - a.score || a.col - b.col);
-
-    return selected.concat(rest);
+    rows.sort((a, b) => b.score - a.score || stableTie(b.col, endIndex, 91) - stableTie(a.col, endIndex, 91));
+    return rows;
   }
 
   function pickNumbers(rows, limit, options = {}) {
     const lastSet = new Set(draws[options.endIndex]?.balls || []);
-    const avoidSet = options.avoidSet || new Set();
     const maxRepeats = Number.isFinite(options.maxRepeats) ? options.maxRepeats : limit;
-    const maxOverlap = Number.isFinite(options.maxOverlap) ? options.maxOverlap : limit;
     const selected = [];
     let repeats = 0;
-    let overlaps = 0;
 
     for (const row of rows) {
       if (selected.length >= limit) break;
       const isRepeat = lastSet.has(row.n);
-      const isOverlap = avoidSet.has(row.n);
       if (isRepeat && repeats >= maxRepeats) continue;
-      if (isOverlap && overlaps >= maxOverlap) continue;
       selected.push(row);
       if (isRepeat) repeats += 1;
-      if (isOverlap) overlaps += 1;
     }
 
     // Защитное заполнение: комбинация всегда должна иметь нужную длину.
@@ -525,14 +547,13 @@ function recentWinnerRate(col, endIndex, window) {
     return pickNumbers(rows, 6, { endIndex, maxRepeats: 2 });
   }
 
-  function rankMarathonNumbers(cols, window, endIndex, sprintNums = []) {
-    const sprintSet = new Set(sprintNums.map(x => Number(x?.n ?? x)));
+  function rankMarathonNumbers(cols, endIndex) {
     const rows = [];
     for (const col of cols) {
-      for (let n = col; n <= 80; n += 10) rows.push({ n, col, ...marathonNumberScore(n, col, window, endIndex, sprintSet) });
+      for (let n = col; n <= 80; n += 10) rows.push({ n, col, ...marathonNumberScore(n, col, endIndex) });
     }
     rows.sort((a, b) => b.score - a.score || a.n - b.n);
-    return pickNumbers(rows, 8, { endIndex, maxRepeats: 2, avoidSet: sprintSet, maxOverlap: 2 });
+    return pickNumbers(rows, 8, { endIndex, maxRepeats: 2 });
   }
 
   async function loadAutoForecastData() {
@@ -611,7 +632,10 @@ function recentWinnerRate(col, endIndex, window) {
     const ranked = rankColumns(pred, end, 'sprint');
     const cols = ranked.slice(0, 4);
     const nums = rankSprintNumbers(cols.map(x => x.col), end);
+    const signal = signalFromRows(ranked);
     return {
+      algorithmVersion: ALGORITHM_VERSION,
+      ...signal,
       name: 'СПРИНТ',
       seq,
       pred,
@@ -626,7 +650,7 @@ function recentWinnerRate(col, endIndex, window) {
     };
   }
 
-  function marathonModel(dayIndices, sprintNums = []) {
+  function marathonModel(dayIndices) {
     const chosen = dayIndices.slice(-40);
     const end = chosen.at(-1);
     const start = chosen[0];
@@ -634,9 +658,13 @@ function recentWinnerRate(col, endIndex, window) {
     const tail = seq.slice(-10);
     const pred = analogForecast(tail, 1, end - 1, end);
     const ranked = rankColumns(pred, end, 'marathon');
-    const cols = ranked.slice(0, 6);
-    const nums = rankMarathonNumbers(cols.map(x => x.col), Math.min(40, chosen.length), end, sprintNums);
-    return { name: 'МАРАФОН', seq, pred, cols, nums, type: classify(seq), window: chosen.length, startIndex: start, endIndex: end, typeKey: 'marathon' };
+    const cols = ranked.slice(0, 4);
+    const nums = rankMarathonNumbers(cols.map(x => x.col), end);
+    return {
+      name: 'МАРАФОН', algorithmVersion: ALGORITHM_VERSION, ...signalFromRows(ranked),
+      seq, pred, cols, nums, type: classify(seq), window: chosen.length,
+      startIndex: start, endIndex: end, typeKey: 'marathon'
+    };
   }
 
   function regimeBars(pred) {
@@ -745,6 +773,11 @@ function recentWinnerRate(col, endIndex, window) {
       sourceDraw: Number(source.draw),
       sourceDate: source.date || '',
       createdAt: new Date().toISOString(),
+      algorithmVersion: ALGORITHM_VERSION,
+      sprintColumns: sprint.cols.map(x => Number(x.col)),
+      marathonColumns: marathon.cols.map(x => Number(x.col)),
+      sprintSignal: sprint.signal,
+      marathonSignal: marathon.signal,
       sprint: sprint.nums.map(x => Number(x.n)),
       marathon: marathon.nums.map(x => Number(x.n))
     });
@@ -813,7 +846,7 @@ function recentWinnerRate(col, endIndex, window) {
       const day = dateIndices(latestDate);
       if (!day.length) return;
       const sprint = sprintModel(day);
-      const marathon = marathonModel(day, sprint.nums);
+      const marathon = marathonModel(day);
       saveForecastPair(sprint, marathon);
     } catch (_) {
       // Не мешаем основному приложению, если архив временно не смог обновиться.
@@ -822,8 +855,13 @@ function recentWinnerRate(col, endIndex, window) {
 
   function modelHtml(model, icon) {
     const changes = model.seq.slice(1).filter((x, i) => x !== model.seq[i]).length;
+    const weakSignal = model.signal === 'слабый'
+      ? '<div class="row sm-weak"><b>Слабый сигнал.</b> Четвёрка сохранена, но преимущество над следующими столбами небольшое.</div>'
+      : '';
     return `<div class="sm-card">
       <div class="sm-head">${icon} ${model.name}</div>
+      <div class="small">Алгоритм ${model.algorithmVersion} · сигнал: <b>${model.signal}</b> (${Math.round(model.signalScore * 100)}%)</div>
+      ${weakSignal}
       <div class="sm-seq">${model.seq.map(stateShort).join('→')}</div>
       <div class="small"><b>Цикл:</b> ${model.type} · смен ${changes}/${Math.max(1, model.seq.length - 1)}</div>
       ${patternFinderHtml(model)}
@@ -870,7 +908,7 @@ function recentWinnerRate(col, endIndex, window) {
     setTimeout(async () => {
       await loadAutoForecastData();
       const sprint = sprintModel(day);
-      const marathon = marathonModel(day, sprint.nums);
+      const marathon = marathonModel(day);
       saveForecastPair(sprint, marathon);
       const content = which === 'sprint'
         ? modelHtml(sprint, '🏃')
@@ -887,21 +925,10 @@ function recentWinnerRate(col, endIndex, window) {
   }
 
   function inject() {
-    if ($('sprintMarathonPanel')) return;
-    const info = document.querySelector('button[data-panel="infoPanel"]');
-    if (!info) return;
-
-    const holder = document.createElement('div');
-    holder.className = 'sm-split';
-    holder.innerHTML = '<button id="sprintBtn" class="tool" type="button" aria-label="Спринт">🏃</button><button id="marathonBtn" class="tool" type="button" aria-label="Марафон">🐢</button>';
-    info.replaceWith(holder);
-
-    const panel = document.createElement('section');
-    panel.id = 'sprintMarathonPanel';
-    panel.className = 'card panel';
-    panel.innerHTML = '<div class="sm-title">🏃 Спринт / 🐢 Марафон</div><div id="sprintMarathonResult"></div>';
-    const search = $('searchPanel');
-    search?.parentNode?.insertBefore(panel, search);
+    const sprintButton = $('sprintBtn');
+    const marathonButton = $('marathonBtn');
+    const panel = $('sprintMarathonPanel');
+    if (!sprintButton || !marathonButton || !panel) return;
 
     const toggle = which => {
       const open = !panel.classList.contains('show') || panel.dataset.which !== which;
@@ -913,8 +940,8 @@ function recentWinnerRate(col, endIndex, window) {
       }
     };
 
-    $('sprintBtn').onclick = () => toggle('sprint');
-    $('marathonBtn').onclick = () => toggle('marathon');
+    sprintButton.onclick = () => toggle('sprint');
+    marathonButton.onclick = () => toggle('marathon');
   }
 
   function styles() {
@@ -922,8 +949,8 @@ function recentWinnerRate(col, endIndex, window) {
     const style = document.createElement('style');
     style.id = 'sprintMarathonStyles';
     style.textContent = `
-      .sm-split{display:grid;grid-template-columns:1fr 1fr;gap:6px}.sm-split .tool{font-size:28px;padding:10px 4px;min-width:0}
-      .sm-title,.sm-head{font-size:20px;font-weight:950}.sm-date-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}.sm-date-row select{background:#102238;color:#fff;border:1px solid #355275;border-radius:10px;padding:10px 12px;font-weight:900;font-size:16px;max-width:58%}.sm-day-count{margin:6px 0 10px;color:#9fb0c6}.sm-card{border:1px solid #2b4668;border-radius:14px;padding:12px;margin-top:10px;background:#0e1d30}
+      .sm-split{display:grid;grid-template-columns:1fr 1fr;gap:6px;min-width:0}.sm-split .tool{font-size:28px;padding:8px 3px;min-width:0;white-space:nowrap}
+      .sm-title,.sm-head{font-size:20px;font-weight:950}.sm-date-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}.sm-date-row select{background:#102238;color:#fff;border:1px solid #355275;border-radius:10px;padding:10px 12px;font-weight:900;font-size:16px;max-width:58%}.sm-day-count{margin:6px 0 10px;color:#9fb0c6}.sm-card{border:1px solid #2b4668;border-radius:14px;padding:12px;margin-top:10px;background:#0e1d30}.sm-weak{border:1px solid #8a642d;background:#30230f;color:#ffd98a}
       .sm-seq{font-size:25px;font-weight:950;color:#83e6a5;letter-spacing:1px;overflow-wrap:anywhere;margin:8px 0}
       .sm-regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.sm-reg{border:1px solid #355275;border-radius:9px;padding:7px 3px;text-align:center}.sm-reg b,.sm-reg span,.sm-reg small{display:block}.sm-reg span{color:#ffd764;font-weight:900}.sm-reg small{color:#9fb0c6;margin-top:2px}.sm-reg.sm-off{opacity:.48}.sm-reg.sm-off span{color:#9fb0c6}
       .sm-chain-list{display:grid;gap:7px}.sm-chain-block{border:1px solid #2a4464;border-radius:10px;padding:9px;background:#101f33}.sm-chain-block b{display:block;margin-bottom:5px}.sm-chain-block span{color:#9fb0c6;font-weight:800}.sm-chain-block .sm-hit{display:inline;font-weight:950;margin-left:2px}.sm-chain-block .sm-hit-first{color:#54e58a}.sm-chain-block .sm-hit-other{color:#63c7ff}.sm-chain-block .sm-hit-miss{color:#ff6b6b}
