@@ -519,43 +519,189 @@
     return cycles;
   }
 
+  const DIRECT_MODEL_VERSION = 'direct-v2-20260804';
+
+  function averageRankPoints(values) {
+    const rows = values.map((value, index) => ({ value: Number(value) || 0, index }))
+      .sort((a, b) => b.value - a.value || a.index - b.index);
+    const points = Array(values.length).fill(0);
+    let start = 0;
+    while (start < rows.length) {
+      let end = start + 1;
+      while (end < rows.length && Math.abs(rows[end].value - rows[start].value) < 1e-12) end += 1;
+      const averageRank = ((start + 1) + end) / 2;
+      const point = values.length + 1 - averageRank;
+      for (let i = start; i < end; i += 1) points[rows[i].index] = point;
+      start = end;
+    }
+    return points;
+  }
+
+  function recentWinnerExpert(series, end, window) {
+    const count = Array(10).fill(0);
+    const start = Math.max(0, end - window + 1);
+    for (let i = start; i <= end; i += 1) count[series[i] - 1] += 1;
+    const used = end - start + 1;
+    return {
+      key: `recent-${window}`,
+      label: `${window} последних тиражей`,
+      values: count.map(v => (v + 1) / (used + 10)),
+      count,
+      support: used
+    };
+  }
+
+  function ewmaWinnerExpert(series, end, halfLife) {
+    const alpha = 1 - Math.exp(Math.log(0.5) / halfLife);
+    const values = Array(10).fill(0.1);
+    for (let i = 0; i <= end; i += 1) {
+      for (let c = 0; c < 10; c += 1) values[c] *= 1 - alpha;
+      values[series[i] - 1] += alpha;
+    }
+    return { key: `ewma-${halfLife}`, label: `быстрый вес ${halfLife}`, values, support: end + 1 };
+  }
+
+  function pairWinnerExpert(series, end) {
+    const values = Array(10).fill(5);
+    const first = series[end - 1];
+    const second = series[end];
+    let support = 0;
+    if (end >= 2) {
+      for (let i = 2; i <= end; i += 1) {
+        if (series[i - 2] !== first || series[i - 1] !== second) continue;
+        values[series[i] - 1] += 1;
+        support += 1;
+      }
+    }
+    const total = values.reduce((a, b) => a + b, 0) || 1;
+    return {
+      key: 'exact-pair',
+      label: `точная пара ст${first}→ст${second}`,
+      values: values.map(v => v / total),
+      count: values.map(v => v - 5),
+      support,
+      context: [first, second]
+    };
+  }
+
+  function transitionWinnerExpert(series, end, window) {
+    const values = Array(10).fill(2);
+    const source = series[end];
+    let support = 0;
+    const start = Math.max(1, end - window + 2);
+    for (let i = start; i <= end; i += 1) {
+      if (series[i - 1] !== source) continue;
+      values[series[i] - 1] += 1;
+      support += 1;
+    }
+    const total = values.reduce((a, b) => a + b, 0) || 1;
+    return {
+      key: `transition-${window}`,
+      label: `после ст${source} · ${window} переходов`,
+      values: values.map(v => v / total),
+      count: values.map(v => v - 2),
+      support,
+      source
+    };
+  }
+
+  function gapWinnerExpert(series, end) {
+    const last = Array(10).fill(-1);
+    for (let i = 0; i <= end; i += 1) last[series[i] - 1] = i;
+    const gap = last.map(index => index >= 0 ? end + 1 - index : end + 2);
+    return { key: 'winner-gap', label: 'давность выхода столба', values: gap.map(v => Math.log1p(v)), gap, support: end + 1 };
+  }
+
+  function directColumnModel(endIndex, type) {
+    if (winnerCache.length !== (Array.isArray(draws) ? draws.length : 0)) rebuildStateCache();
+    if (endIndex < 2) throw new Error('Для прямого прогноза нужно не меньше трёх тиражей');
+    const series = winnerCache;
+    const sprint = type === 'sprint';
+    const experts = sprint
+      ? [recentWinnerExpert(series, endIndex, 20), ewmaWinnerExpert(series, endIndex, 5), pairWinnerExpert(series, endIndex)]
+      : [recentWinnerExpert(series, endIndex, 200), transitionWinnerExpert(series, endIndex, 100), pairWinnerExpert(series, endIndex), gapWinnerExpert(series, endIndex)];
+
+    const current = counts(draws[endIndex]);
+    const rows = Array.from({ length: 10 }, (_, index) => ({
+      col: index + 1,
+      state: Math.min(4, current[index + 1] || 0),
+      score: 0,
+      reasons: []
+    }));
+
+    for (const expert of experts) {
+      const points = averageRankPoints(expert.values);
+      for (let c = 0; c < 10; c += 1) {
+        rows[c].score += points[c];
+        if (expert.key.startsWith('recent-')) rows[c].reasons.push(`${expert.label}: ${expert.count[c]}/${expert.support}`);
+        else if (expert.key.startsWith('ewma-')) rows[c].reasons.push(`${expert.label}: ${Math.round(expert.values[c] * 100)}%`);
+        else if (expert.key === 'exact-pair') rows[c].reasons.push(`${expert.label}: ${expert.count[c]} из ${expert.support}`);
+        else if (expert.key.startsWith('transition-')) rows[c].reasons.push(`${expert.label}: ${expert.count[c]} из ${expert.support}`);
+        else if (expert.key === 'winner-gap') rows[c].reasons.push(`не выходил ${expert.gap[c]} тир.`);
+      }
+    }
+
+    const rotation = Number(draws[endIndex]?.draw || endIndex) % 10;
+    rows.sort((a, b) => b.score - a.score || ((a.col - 1 - rotation + 10) % 10) - ((b.col - 1 - rotation + 10) % 10));
+    const scoreMax = experts.length * 10;
+    return {
+      modelVersion: DIRECT_MODEL_VERSION,
+      type,
+      window: sprint ? 20 : 200,
+      rows: rows.slice(0, 4).map(row => ({ ...row, scoreMax })),
+      columns: rows.slice(0, 4).map(row => row.col),
+      experts: experts.map(expert => ({ key: expert.key, label: expert.label, support: expert.support })),
+      tieRotation: rotation + 1
+    };
+  }
+
   function sprintModel(dayIndices) {
     const cycles = splitIntoCycles(dayIndices);
     const chosenCycles = cycles.slice(-2);
     const chosen = chosenCycles.flat();
-    const end = chosen.at(-1);
-    const start = chosen[0];
-    const seq = chosen.map(i => stateBeforeWinner(i)).filter(v => v !== null);
-    const pred = analogForecast(seq, 1, end - 1, end);
-    const ranked = rankColumns(pred, 8, end);
-    const cols = ranked.slice(0, 4);
+    const end = dayIndices.at(-1);
+    const direct = directColumnModel(end, 'sprint');
+    const cols = direct.rows;
     const nums = rankSprintNumbers(cols.map(x => x.col), end);
     return {
       name: 'СПРИНТ',
-      seq,
-      pred,
+      seq: chosen.map(i => stateBeforeWinner(i)).filter(v => v !== null),
+      winnerSeq: winnerCache.slice(Math.max(0, end - 19), end + 1),
       cols,
       nums,
-      type: classify(seq),
-      window: chosen.length,
-      startIndex: start,
+      type: 'короткий прямой анализ конкретных столбов',
+      window: 20,
+      startIndex: chosen[0],
       endIndex: end,
       cycles: chosenCycles,
-      typeKey: 'sprint'
+      typeKey: 'sprint',
+      experts: direct.experts,
+      modelVersion: direct.modelVersion,
+      tieRotation: direct.tieRotation
     };
   }
 
   function marathonModel(dayIndices, sprintNums = []) {
     const chosen = dayIndices.slice(-40);
-    const end = chosen.at(-1);
-    const start = chosen[0];
-    const seq = chosen.map(i => stateBeforeWinner(i)).filter(v => v !== null);
-    const tail = seq.slice(-10);
-    const pred = analogForecast(tail, 1, end - 1, end);
-    const ranked = rankColumns(pred, Math.min(40, chosen.length), end);
-    const cols = ranked.slice(0, 4);
+    const end = dayIndices.at(-1);
+    const direct = directColumnModel(end, 'marathon');
+    const cols = direct.rows;
     const nums = rankMarathonNumbers(cols.map(x => x.col), Math.min(40, chosen.length), end, sprintNums);
-    return { name: 'МАРАФОН', seq, pred, cols, nums, type: classify(seq), window: chosen.length, startIndex: start, endIndex: end, typeKey: 'marathon' };
+    return {
+      name: 'МАРАФОН',
+      seq: chosen.map(i => stateBeforeWinner(i)).filter(v => v !== null),
+      winnerSeq: winnerCache.slice(Math.max(0, end - 19), end + 1),
+      cols,
+      nums,
+      type: 'длинный прямой анализ конкретных столбов',
+      window: 200,
+      startIndex: chosen[0],
+      endIndex: end,
+      typeKey: 'marathon',
+      experts: direct.experts,
+      modelVersion: direct.modelVersion,
+      tieRotation: direct.tieRotation
+    };
   }
 
   function regimeBars(pred) {
@@ -740,19 +886,19 @@
   }
 
   function modelHtml(model, icon) {
-    const changes = model.seq.slice(1).filter((x, i) => x !== model.seq[i]).length;
+    const expertText = (model.experts || []).map(x => `${x.label}${Number.isFinite(x.support) ? ` (${x.support})` : ''}`).join(' · ');
     return `<div class="sm-card">
       <div class="sm-head">${icon} ${model.name}</div>
-      <div class="sm-seq">${model.seq.map(stateShort).join('→')}</div>
-      <div class="small"><b>Цикл:</b> ${model.type} · смен ${changes}/${Math.max(1, model.seq.length - 1)}</div>
-      ${patternFinderHtml(model)}
+      <div class="sm-seq">${(model.winnerSeq || []).map(col => `ст${col}`).join('→')}</div>
+      <div class="small"><b>Алгоритм:</b> ${model.type} · окно ${model.window} тиражей · версия ${model.modelVersion}</div>
       <div class="section"><span>Цепочки тиражей</span></div>
       <div class="sm-chain-list">${chainBlocksHtml(model)}</div>
-      <div class="section"><span>Вероятное продолжение режима</span></div>
-      <div class="sm-regs">${regimeBars(model.pred)}</div>
-      <div class="row small">Точных пятёрок: ${model.pred.exact} · близких фрагментов: ${model.pred.near} · переключений учтено: ${model.pred.switchCases}</div>
-      <div class="section"><span>Выход №${Number(draws[model.endIndex]?.draw || 0) + 1}</span></div>
-      ${model.cols.map((x, i) => `<div class="sm-line"><b>${i + 1}. ст${x.col}</b> · сейчас ${stateLabel(x.state)} · ${Math.round(x.score * 100)} баллов<br><span class="small">${x.reasons.join(' · ') || 'по режиму цепочки'}</span></div>`).join('')}
+      <div class="section"><span>Прямые сигналы столбов</span></div>
+      <div class="row small">${expertText}</div>
+      <div class="row small"><b>Важно:</b> пустые и одиночные столбы не получают штрафа. Плотность показана только как текущее состояние и не выбирает прогноз.</div>
+      <div class="section"><span>Выход №${Number(draws[model.endIndex]?.draw || 0) + 1} · ровно 4 столба</span></div>
+      ${model.cols.map((x, i) => `<div class="sm-line"><b>${i + 1}. ст${x.col}</b> · сейчас ${stateLabel(x.state)} · общий ранг ${x.score.toFixed(1)}/${x.scoreMax}<br><span class="small">${x.reasons.join(' · ')}</span></div>`).join('')}
+      <div class="row small">При полном равенстве порядок поворачивается по номеру последнего тиража (старт ст${model.tieRotation}), поэтому преимущества у ст1 больше нет.</div>
       <div class="section"><span>Комбинация чисел</span></div>
       <div class="sm-balls">${model.nums.map(x => `<div class="sm-ball"><b>${pad(x.n)}</b><small>ст${x.col}</small></div>`).join('')}</div>
     </div>`;
@@ -796,7 +942,7 @@
         : which === 'marathon'
           ? modelHtml(marathon, '🐢')
           : modelHtml(sprint, '🏃') + modelHtml(marathon, '🐢') + agreementHtml(sprint, marathon);
-      box.innerHTML = selector + `<div class="small sm-day-count">За ${selectedDate}: ${day.length} тиражей. Спринт — 2 последних цикла (${sprint.window} тиражей), Марафон — ${Math.min(40, day.length)}.</div>` + content + forecastArchiveHtml();
+      box.innerHTML = selector + `<div class="small sm-day-count">За ${selectedDate}: ${day.length} тиражей. Спринт анализирует 20 последних тиражей, Марафон — 200; в цепочках показан компактный свежий участок.</div>` + content + forecastArchiveHtml();
       const select2 = $('smDateSelect');
       if (select2) select2.onchange = e => { selectedDate = e.target.value; render(which); };
       if (which === 'sprint') bindPatternFinder(sprint);
@@ -806,34 +952,98 @@
   }
 
   function inject() {
-    if ($('sprintMarathonPanel')) return;
     const info = document.querySelector('button[data-panel="infoPanel"]');
-    if (!info) return;
+    let holder = document.querySelector('.sm-split');
+    let sprintButton = $('sprintBtn');
+    let marathonButton = $('marathonBtn');
 
-    const holder = document.createElement('div');
-    holder.className = 'sm-split';
-    holder.innerHTML = '<button id="sprintBtn" class="tool" type="button" aria-label="Спринт">🏃</button><button id="marathonBtn" class="tool" type="button" aria-label="Марафон">🐢</button>';
-    info.replaceWith(holder);
+    // При первом запуске заменяем кнопку «О v7.2» двумя маленькими кнопками.
+    // При повторном запуске используем уже существующие кнопки и обязательно
+    // назначаем им обработчики заново.
+    if (!holder) {
+      if (!info) return;
+      holder = document.createElement('div');
+      holder.className = 'sm-split';
+      holder.innerHTML = '<button id="sprintBtn" class="tool" type="button" aria-label="Спринт">🏃</button><button id="marathonBtn" class="tool" type="button" aria-label="Марафон">🐢</button>';
+      info.replaceWith(holder);
+      sprintButton = $('sprintBtn');
+      marathonButton = $('marathonBtn');
+    }
 
-    const panel = document.createElement('section');
-    panel.id = 'sprintMarathonPanel';
-    panel.className = 'card panel';
-    panel.innerHTML = '<div class="sm-title">🏃 Спринт / 🐢 Марафон</div><div id="sprintMarathonResult"></div>';
-    const search = $('searchPanel');
-    search?.parentNode?.insertBefore(panel, search);
+    let panel = $('sprintMarathonPanel');
+    if (!panel) {
+      panel = document.createElement('section');
+      panel.id = 'sprintMarathonPanel';
+      panel.className = 'card panel';
+      panel.innerHTML = '<div class="sm-title">🏃 Спринт / 🐢 Марафон</div><div id="sprintMarathonResult"></div>';
+      const search = $('searchPanel');
+      if (search?.parentNode) search.parentNode.insertBefore(panel, search);
+      else document.querySelector('.wrap')?.appendChild(panel);
+    }
+
+    const setButtonState = openMode => {
+      sprintButton?.classList.toggle('sm-active', openMode === 'sprint');
+      marathonButton?.classList.toggle('sm-active', openMode === 'marathon');
+      sprintButton?.setAttribute('aria-expanded', String(openMode === 'sprint'));
+      marathonButton?.setAttribute('aria-expanded', String(openMode === 'marathon'));
+    };
 
     const toggle = which => {
-      const open = !panel.classList.contains('show') || panel.dataset.which !== which;
-      panel.classList.toggle('show', open);
-      panel.dataset.which = open ? which : '';
+      const isSameOpen = panel.classList.contains('show') && panel.dataset.which === which;
+      const open = !isSameOpen;
+
       if (open) {
-        render(which);
-        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Закрываем другие инструментальные панели, чтобы результат был сразу виден.
+        document.querySelectorAll('.panel.show').forEach(other => {
+          if (other !== panel) other.classList.remove('show');
+        });
+        panel.classList.add('show');
+        panel.dataset.which = which;
+        panel.style.setProperty('display', 'block', 'important');
+        setButtonState(which);
+        try {
+          render(which);
+        } catch (error) {
+          console.error('Спринт/Марафон: ошибка открытия', error);
+          const result = $('sprintMarathonResult');
+          if (result) result.innerHTML = '<div class="row">Не удалось открыть анализ. Обновите страницу.</div>';
+        }
+        requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      } else {
+        panel.classList.remove('show');
+        panel.dataset.which = '';
+        panel.style.setProperty('display', 'none', 'important');
+        setButtonState('');
       }
     };
 
-    $('sprintBtn').onclick = () => toggle('sprint');
-    $('marathonBtn').onclick = () => toggle('marathon');
+    // Глобальная ссылка позволяет восстановить работу даже после повторного
+    // запуска модуля или восстановления страницы браузером из памяти.
+    window.__pozitronSmToggle = toggle;
+
+    // Один обработчик в фазе захвата: другие части приложения не смогут
+    // случайно перезаписать нажатия этих двух кнопок.
+    if (!window.__pozitronSmClickBound) {
+      document.addEventListener('click', event => {
+        const button = event.target?.closest?.('#sprintBtn, #marathonBtn');
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const which = button.id === 'sprintBtn' ? 'sprint' : 'marathon';
+        window.__pozitronSmToggle?.(which);
+      }, true);
+      window.__pozitronSmClickBound = true;
+    }
+
+    // Убираем старые onclick, если они остались от прежней версии.
+    if (sprintButton) sprintButton.onclick = null;
+    if (marathonButton) marathonButton.onclick = null;
+
+    // Начальное состояние панели.
+    if (!panel.classList.contains('show')) {
+      panel.style.setProperty('display', 'none', 'important');
+      setButtonState('');
+    }
   }
 
   function styles() {
@@ -841,7 +1051,7 @@
     const style = document.createElement('style');
     style.id = 'sprintMarathonStyles';
     style.textContent = `
-      .sm-split{display:grid;grid-template-columns:1fr 1fr;gap:6px}.sm-split .tool{font-size:28px;padding:10px 4px;min-width:0}
+      .sm-split{display:grid;grid-template-columns:1fr 1fr;gap:6px}.sm-split .tool{font-size:28px;padding:10px 4px;min-width:0;touch-action:manipulation}.sm-split .tool.sm-active{border-color:#54e58a!important;background:#123023!important;box-shadow:0 0 0 1px rgba(84,229,138,.35) inset}
       .sm-title,.sm-head{font-size:20px;font-weight:950}.sm-date-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}.sm-date-row select{background:#102238;color:#fff;border:1px solid #355275;border-radius:10px;padding:10px 12px;font-weight:900;font-size:16px;max-width:58%}.sm-day-count{margin:6px 0 10px;color:#9fb0c6}.sm-card{border:1px solid #2b4668;border-radius:14px;padding:12px;margin-top:10px;background:#0e1d30}
       .sm-seq{font-size:25px;font-weight:950;color:#83e6a5;letter-spacing:1px;overflow-wrap:anywhere;margin:8px 0}
       .sm-regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.sm-reg{border:1px solid #355275;border-radius:9px;padding:7px 3px;text-align:center}.sm-reg b,.sm-reg span,.sm-reg small{display:block}.sm-reg span{color:#ffd764;font-weight:900}.sm-reg small{color:#9fb0c6;margin-top:2px}.sm-reg.sm-off{opacity:.48}.sm-reg.sm-off span{color:#9fb0c6}

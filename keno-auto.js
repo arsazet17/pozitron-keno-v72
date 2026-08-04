@@ -5,9 +5,7 @@ const fs = require('fs');
 const SOURCE_URL = 'https://lucky-numbers.ru/lottery/ru/keno2';
 const HISTORY_FILE = 'keno-history.json';
 const OUTPUT_FILE = 'keno-auto.json';
-const ALGORITHM_VERSION = '2.2.0';
 const colOf = n => n % 10 || 10;
-const clamp01 = v => Math.max(0, Math.min(1, Number(v) || 0));
 
 function counts(draw) {
   const out = Array(11).fill(0);
@@ -15,6 +13,8 @@ function counts(draw) {
   return out;
 }
 
+// Победитель: максимальное количество чисел; при равенстве — столбец,
+// который первым достиг этого максимума в порядке выпадения шаров.
 function winner(draw) {
   const final = counts(draw);
   const max = Math.max(...final.slice(1));
@@ -27,236 +27,284 @@ function winner(draw) {
   return 1;
 }
 
-function makeCache(draws) {
-  const countCache = draws.map(counts);
-  const winnerCache = draws.map(winner);
-  const stateCache = Array(draws.length).fill(null);
-  for (let i = 1; i < draws.length; i += 1) {
-    stateCache[i] = Math.min(4, countCache[i - 1][winnerCache[i]] || 0);
-  }
-  return { countCache, winnerCache, stateCache };
+function stateBeforeWinner(draws, i) {
+  if (i <= 0) return null;
+  return Math.min(4, counts(draws[i - 1])[winner(draws[i])] || 0);
 }
 
-function weightedSequenceSimilarity(cache, aEnd, bEnd, len) {
-  const a = [], b = [];
-  for (let k = len - 1; k >= 0; k -= 1) {
-    const av = cache.stateCache[aEnd - k];
-    const bv = cache.stateCache[bEnd - k];
-    if (av === null || bv === null || av === undefined || bv === undefined) continue;
-    a.push(av); b.push(bv);
+function sequence(draws, end, len) {
+  const out = [];
+  for (let i = Math.max(1, end - len + 1); i <= end; i += 1) {
+    const state = stateBeforeWinner(draws, i);
+    if (state !== null) out.push(state);
   }
-  if (!a.length || a.length !== b.length) return 0;
+  return out;
+}
+
+function weightedSimilarity(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (!n) return 0;
   let score = 0, total = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    const w = i + 1;
-    total += w;
-    score += w * (1 - Math.min(1, Math.abs(a[i] - b[i]) / 4));
+  for (let i = 0; i < n; i += 1) {
+    const weight = i + 1;
+    const av = a[a.length - n + i];
+    const bv = b[b.length - n + i];
+    total += weight;
+    score += weight * (1 - Math.min(1, Math.abs(av - bv) / 4));
   }
   return total ? score / total : 0;
 }
 
-function countVectorSimilarity(a, b) {
-  let diff = 0;
-  for (let c = 1; c <= 10; c += 1) diff += Math.abs((a[c] || 0) - (b[c] || 0));
-  return clamp01(1 - diff / 24);
+function addHistoricalBaseline(draws, support, minIndex, maxIndex, weight) {
+  const freq = Array(5).fill(0);
+  for (let i = Math.max(1, minIndex); i <= maxIndex; i += 1) {
+    const s = stateBeforeWinner(draws, i);
+    if (s !== null) freq[s] += 1;
+  }
+  const total = freq.reduce((a, b) => a + b, 0) || 1;
+  freq.forEach((v, i) => { support[i] += weight * v / total; });
 }
 
-function recentWinnerRate(cache, col, endIndex, window) {
-  const start = Math.max(0, endIndex - window + 1);
-  let hits = 0;
-  for (let i = start; i <= endIndex; i += 1) if (cache.winnerCache[i] === col) hits += 1;
-  return hits / Math.max(1, endIndex - start + 1);
-}
-
-function transitionWinnerRate(cache, col, endIndex, window) {
-  if (endIndex < 2) return 0.10;
-  const currentWinner = cache.winnerCache[endIndex];
-  const start = Math.max(1, endIndex - window + 1);
-  let cases = 0, hits = 0;
-  for (let i = start; i <= endIndex; i += 1) {
-    if (cache.winnerCache[i - 1] !== currentWinner) continue;
-    cases += 1;
-    if (cache.winnerCache[i] === col) hits += 1;
-  }
-  return (hits + 2) / (cases + 20);
-}
-
-function analogRows(draws, cache, endIndex, type) {
-  const sprint = type === 'sprint';
-  const targetCounts = cache.countCache[endIndex];
-  const targetWinner = cache.winnerCache[endIndex];
-  const seqLen = sprint ? 4 : 7;
-  const maxLookback = sprint ? 5000 : 12000;
-  const start = Math.max(seqLen, endIndex - maxLookback);
-  const rows = [];
-
-  for (let i = start; i < endIndex; i += 1) {
-    if (endIndex - i <= seqLen + 1) continue;
-    const vec = countVectorSimilarity(targetCounts, cache.countCache[i]);
-    const seq = weightedSequenceSimilarity(cache, endIndex, i, seqLen);
-    const sameWinner = cache.winnerCache[i] === targetWinner ? 1 : 0;
-    const score = sprint
-      ? vec * 0.50 + seq * 0.30 + sameWinner * 0.20
-      : vec * 0.42 + seq * 0.43 + sameWinner * 0.15;
-    if (score < (sprint ? 0.48 : 0.52)) continue;
-    rows.push({ index: i, nextIndex: i + 1, score });
-  }
-
-  rows.sort((a, b) => b.score - a.score || b.index - a.index);
-  return rows.slice(0, sprint ? 90 : 180);
-}
-
-function modelProbabilities(draws, cache, endIndex, type) {
-  const sprint = type === 'sprint';
-  const rows = analogRows(draws, cache, endIndex, type);
-  const weightedHits = Array(11).fill(0);
-  let totalWeight = 0;
-
-  rows.forEach((row, rank) => {
-    const recency = 0.72 + 0.28 * ((row.index + 1) / Math.max(1, endIndex));
-    const rankWeight = Math.max(0.45, 1 - rank / Math.max(100, rows.length * 1.4));
-    const weight = Math.pow(row.score, 4) * recency * rankWeight;
-    weightedHits[cache.winnerCache[row.nextIndex]] += weight;
-    totalWeight += weight;
-  });
-
-  const prior = 14;
-  const probs = Array(11).fill(0);
-  for (let col = 1; col <= 10; col += 1) {
-    const analogP = (weightedHits[col] + prior * 0.10) / (totalWeight + prior);
-    const transitionP = transitionWinnerRate(cache, col, endIndex, sprint ? 220 : 700);
-    const recentP = recentWinnerRate(cache, col, endIndex, sprint ? 30 : 240);
-    probs[col] = sprint
-      ? analogP * 0.74 + transitionP * 0.16 + recentP * 0.10
-      : analogP * 0.80 + transitionP * 0.10 + recentP * 0.10;
-  }
-
-  const total = probs.slice(1).reduce((a, b) => a + b, 0) || 1;
-  for (let col = 1; col <= 10; col += 1) probs[col] /= total;
-
-  const columns = Array.from({ length: 10 }, (_, i) => i + 1)
-    .sort((a, b) => probs[b] - probs[a] || a - b)
-    .slice(0, 4);
-
-  return { probs, columns, analogs: rows.length, rows };
-}
-
-function recentGap(draws, n, endIndex, maxWindow = 40) {
-  const start = Math.max(0, endIndex - maxWindow + 1);
-  for (let i = endIndex; i >= start; i -= 1) {
-    if ((draws[i]?.balls || []).includes(n)) return endIndex - i;
-  }
-  return maxWindow;
-}
-
-function numberScore(draws, n, endIndex, type) {
-  const lastSet = new Set(draws[endIndex]?.balls || []);
-  if (type === 'sprint') {
-    const prevSet = new Set(draws[endIndex - 1]?.balls || []);
-    const recent = draws.slice(Math.max(0, endIndex - 7), endIndex + 1);
-    const hits = recent.filter(d => (d?.balls || []).includes(n)).length;
-    const has = x => x >= 1 && x <= 80 && lastSet.has(x);
-    let score = lastSet.has(n) ? 0.30 : 0.62;
-    score += hits / Math.max(1, recent.length) * 0.95;
-    if (!lastSet.has(n) && prevSet.has(n)) score += 0.45;
-    if (has(n - 1) || has(n + 1)) score += 0.40;
-    if (has(n - 10) || has(n + 10)) score += 0.48;
-    if (has(n - 2) || has(n + 2)) score += 0.20;
-    if (recentGap(draws, n, endIndex, 12) >= 3) score += 0.28;
-    return score;
-  }
-
-  const recent80 = draws.slice(Math.max(0, endIndex - 79), endIndex + 1);
-  const long240 = draws.slice(Math.max(0, endIndex - 239), endIndex + 1);
-  const rate80 = recent80.filter(d => (d?.balls || []).includes(n)).length / Math.max(1, recent80.length);
-  const rate240 = long240.filter(d => (d?.balls || []).includes(n)).length / Math.max(1, long240.length);
-  const gap = recentGap(draws, n, endIndex, 60);
-  const half = Math.max(1, Math.floor(recent80.length / 2));
-  const earlyRate = recent80.slice(0, half).filter(d => (d?.balls || []).includes(n)).length / half;
-  const latePart = recent80.slice(half);
-  const lateRate = latePart.filter(d => (d?.balls || []).includes(n)).length / Math.max(1, latePart.length);
-  const stability = 1 - Math.min(1, Math.abs(rate80 - rate240) * 5);
-  let score = rate80 * 1.45 + rate240 * 1.25 + stability * 0.28;
-  score += Math.min(0.32, gap * 0.035);
-  score += Math.max(-0.20, Math.min(0.20, lateRate - earlyRate)) * 0.70;
-  if (lastSet.has(n)) score -= 0.12;
-  return score;
-}
-
-function rankNumbers(draws, columns, type, endIndex) {
-  const rows = [];
-  for (const col of columns) {
-    for (let n = col; n <= 80; n += 10) rows.push({ n, score: numberScore(draws, n, endIndex, type) });
-  }
-  rows.sort((a, b) => b.score - a.score || a.n - b.n);
-  const limit = type === 'sprint' ? 6 : 8;
-  const lastSet = new Set(draws[endIndex]?.balls || []);
-  const selected = [];
-  let repeats = 0;
-  for (const row of rows) {
-    if (selected.length >= limit) break;
-    const repeat = lastSet.has(row.n);
-    if (repeat && repeats >= 2) continue;
-    selected.push(row.n);
-    if (repeat) repeats += 1;
-  }
-  for (const row of rows) {
-    if (selected.length >= limit) break;
-    if (!selected.includes(row.n)) selected.push(row.n);
-  }
-  return selected;
-}
-
-function backtest(draws, cache, type, endIndex, tests = 60) {
-  const start = Math.max(260, endIndex - tests);
-  let n = 0, first = 0, top4 = 0;
-  for (let i = start; i < endIndex; i += 1) {
-    const p = modelProbabilities(draws, cache, i, type);
-    if (!p.columns.length) continue;
-    const actual = cache.winnerCache[i + 1];
-    n += 1;
-    if (p.columns[0] === actual) first += 1;
-    if (p.columns.includes(actual)) top4 += 1;
-  }
-  const top1Rate = n ? first / n : 0;
-  const top4Rate = n ? top4 / n : 0;
-  const uplift = top4Rate - 0.40;
-  const signal = n < 25 ? 'недостаточно данных'
-    : top4Rate >= 0.52 && top1Rate >= 0.13 ? 'сильный'
-      : top4Rate >= 0.46 ? 'средний' : 'слабый';
-  return { tests: n, first, top4, top1Rate, top4Rate, uplift, signal };
-}
-
-function makeModel(draws, cache, type, endIndex = draws.length - 1, withBacktest = true) {
-  const p = modelProbabilities(draws, cache, endIndex, type);
-  const bt = withBacktest ? backtest(draws, cache, type, endIndex) : null;
-  const columns = p.columns;
-  const numbers = rankNumbers(draws, columns, type, endIndex);
-  const currentCounts = cache.countCache[endIndex];
-  const regimes = Array.from({ length: 5 }, (_, state) => {
-    const cols = [];
-    let probability = 0;
-    for (let col = 1; col <= 10; col += 1) {
-      if (Math.min(4, currentCounts[col]) === state) {
-        cols.push(col);
-        probability += p.probs[col];
-      }
+function addSuffixEvidence(draws, seq, minIndex, maxIndex, support, stats) {
+  const lengths = [5, 4, 3, 2];
+  for (const len of lengths) {
+    if (seq.length < len) continue;
+    const target = seq.slice(-len);
+    for (let i = Math.max(minIndex + len - 1, len); i < maxIndex; i += 1) {
+      const candidate = [];
+      for (let j = i - len + 1; j <= i; j += 1) candidate.push(stateBeforeWinner(draws, j));
+      if (candidate.some(v => v === null)) continue;
+      const next = stateBeforeWinner(draws, i + 1);
+      if (next === null) continue;
+      const exact = candidate.every((v, j) => v === target[j]);
+      const sim = exact ? 1 : weightedSimilarity(target, candidate);
+      if (!exact && sim < 0.72) continue;
+      const recency = 0.55 + 0.45 * (i / Math.max(1, maxIndex));
+      const lengthWeight = { 5: 4.8, 4: 3.0, 3: 1.8, 2: 0.8 }[len];
+      const weight = lengthWeight * recency * Math.pow(sim, 4);
+      support[next] += weight;
+      stats.weight += weight;
+      if (exact && len === 5) stats.exact += 1;
+      else stats.near += 1;
     }
-    return { state: state === 4 ? '4+' : String(state), percent: Math.round(probability * 100), columns: cols };
-  });
+  }
+}
+
+function addSwitchEvidence(draws, seq, minIndex, maxIndex, support, stats) {
+  if (seq.length < 3) return;
+  const last = seq.at(-1), prev = seq.at(-2), prev2 = seq.at(-3);
+  const targetChanged = last !== prev;
+  const targetChangedTwice = prev !== prev2;
+  for (let i = Math.max(3, minIndex); i < maxIndex; i += 1) {
+    const a = stateBeforeWinner(draws, i - 2);
+    const b = stateBeforeWinner(draws, i - 1);
+    const c = stateBeforeWinner(draws, i);
+    const next = stateBeforeWinner(draws, i + 1);
+    if ([a, b, c, next].some(v => v === null)) continue;
+    let match = 0;
+    if (b === prev && c === last) match += 0.48;
+    if ((c !== b) === targetChanged) match += 0.24;
+    if ((b !== a) === targetChangedTwice) match += 0.14;
+    if (Math.sign(c - b) === Math.sign(last - prev)) match += 0.14;
+    if (match < 0.60) continue;
+    const weight = 0.9 * Math.pow(match, 3);
+    support[next] += weight;
+    stats.weight += weight;
+    stats.switchCases += 1;
+  }
+}
+
+function currentAvailability(draws) {
+  const current = counts(draws.at(-1));
+  const byState = Array.from({ length: 5 }, () => []);
+  for (let col = 1; col <= 10; col += 1) byState[Math.min(4, current[col])].push(col);
+  return byState;
+}
+
+function analogForecast(draws, seq, minIndex, maxIndex) {
+  const support = Array(5).fill(0);
+  const stats = { exact: 0, near: 0, switchCases: 0, weight: 0 };
+  addSuffixEvidence(draws, seq, minIndex, maxIndex, support, stats);
+  addSwitchEvidence(draws, seq, minIndex, maxIndex, support, stats);
+  addHistoricalBaseline(draws, support, minIndex, maxIndex, Math.max(0.35, stats.weight * 0.25));
+  const available = currentAvailability(draws);
+  const filtered = support.map((v, s) => available[s].length ? Math.max(0, v) : 0);
+  const total = filtered.reduce((a, b) => a + b, 0);
+  const probs = total ? filtered.map(v => v / total) : available.map(x => x.length ? 1 : 0);
+  const norm = probs.reduce((a, b) => a + b, 0) || 1;
+  return { probs: probs.map(v => v / norm), available, ...stats };
+}
+
+function winnerStreak(draws, col) {
+  let streak = 0;
+  for (let i = draws.length - 1; i >= 0; i -= 1) {
+    if (winner(draws[i]) === col) streak += 1; else break;
+  }
+  return streak;
+}
+
+function preservedWinnerFrame(draws, col) {
+  if (draws.length < 2) return 0;
+  const last = new Set(draws.at(-1).balls || []);
+  const prev = (draws.at(-2).balls || []).filter(n => colOf(n) === col);
+  return prev.filter(n => last.has(n)).length;
+}
+
+function rankColumns(draws, pred, window) {
+  const current = counts(draws.at(-1));
+  const rows = [];
+  for (let col = 1; col <= 10; col += 1) {
+    const state = Math.min(4, current[col]);
+    const regime = pred.probs[state] || 0;
+    let shape = 0;
+    const nums = (draws.at(-1).balls || []).filter(n => colOf(n) === col);
+    if (state === 0) shape += 0.20;
+    if (state === 1) shape += 0.35;
+    if (state === 2) shape += 0.50;
+    if (state === 3) shape += 0.45;
+    if (state === 4) shape += 0.38;
+    if (nums.some(n => nums.includes(n + 10))) shape += 0.30;
+    const history = draws.slice(-window).map(d => counts(d)[col]);
+    if (history.at(-1) - (history[0] || 0) > 0) shape += 0.20;
+    const streak = winnerStreak(draws, col);
+    if (streak >= 1) shape += Math.min(0.45, 0.18 + streak * 0.10);
+    const preserved = preservedWinnerFrame(draws, col);
+    if (preserved > 0 && winner(draws.at(-2)) === col) shape += Math.min(0.35, preserved * 0.12);
+    rows.push({ col, state, score: regime * 3 + shape });
+  }
+  return rows.sort((a, b) => b.score - a.score || b.regime - a.regime || a.col - b.col);
+}
+
+const DIRECT_MODEL_VERSION = 'direct-v2-20260804';
+
+function averageRankPoints(values) {
+  const rows = values.map((value, index) => ({ value: Number(value) || 0, index }))
+    .sort((a, b) => b.value - a.value || a.index - b.index);
+  const points = Array(values.length).fill(0);
+  let start = 0;
+  while (start < rows.length) {
+    let end = start + 1;
+    while (end < rows.length && Math.abs(rows[end].value - rows[start].value) < 1e-12) end += 1;
+    const averageRank = ((start + 1) + end) / 2;
+    const point = values.length + 1 - averageRank;
+    for (let i = start; i < end; i += 1) points[rows[i].index] = point;
+    start = end;
+  }
+  return points;
+}
+
+function recentWinnerExpert(series, end, window) {
+  const count = Array(10).fill(0);
+  const start = Math.max(0, end - window + 1);
+  for (let i = start; i <= end; i += 1) count[series[i] - 1] += 1;
+  const used = end - start + 1;
   return {
-    algorithmVersion: ALGORITHM_VERSION,
-    columns,
-    columnProbabilities: columns.map(col => ({ col, percent: Number((p.probs[col] * 100).toFixed(1)) })),
-    allColumnProbabilities: Array.from({ length: 10 }, (_, i) => ({ col: i + 1, percent: Number((p.probs[i + 1] * 100).toFixed(1)) })),
-    numbers,
-    numberCount: numbers.length,
-    signal: bt?.signal || 'не проверен',
-    signalScore: bt?.top4Rate || 0,
-    backtest: bt,
-    analogs: p.analogs,
-    regimes
+    key: `recent-${window}`,
+    label: `${window} последних тиражей`,
+    values: count.map(v => (v + 1) / (used + 10)),
+    count,
+    support: used
   };
+}
+
+function ewmaWinnerExpert(series, end, halfLife) {
+  const alpha = 1 - Math.exp(Math.log(0.5) / halfLife);
+  const values = Array(10).fill(0.1);
+  for (let i = 0; i <= end; i += 1) {
+    for (let c = 0; c < 10; c += 1) values[c] *= 1 - alpha;
+    values[series[i] - 1] += alpha;
+  }
+  return { key: `ewma-${halfLife}`, label: `быстрый вес ${halfLife}`, values, support: end + 1 };
+}
+
+function pairWinnerExpert(series, end) {
+  const values = Array(10).fill(5);
+  const first = series[end - 1];
+  const second = series[end];
+  let support = 0;
+  if (end >= 2) {
+    for (let i = 2; i <= end; i += 1) {
+      if (series[i - 2] !== first || series[i - 1] !== second) continue;
+      values[series[i] - 1] += 1;
+      support += 1;
+    }
+  }
+  const total = values.reduce((a, b) => a + b, 0) || 1;
+  return {
+    key: 'exact-pair',
+    label: `точная пара ст${first}→ст${second}`,
+    values: values.map(v => v / total),
+    count: values.map(v => v - 5),
+    support,
+    context: [first, second]
+  };
+}
+
+function transitionWinnerExpert(series, end, window) {
+  const values = Array(10).fill(2);
+  const source = series[end];
+  let support = 0;
+  const start = Math.max(1, end - window + 2);
+  for (let i = start; i <= end; i += 1) {
+    if (series[i - 1] !== source) continue;
+    values[series[i] - 1] += 1;
+    support += 1;
+  }
+  const total = values.reduce((a, b) => a + b, 0) || 1;
+  return {
+    key: `transition-${window}`,
+    label: `после ст${source} · ${window} переходов`,
+    values: values.map(v => v / total),
+    count: values.map(v => v - 2),
+    support,
+    source
+  };
+}
+
+function gapWinnerExpert(series, end) {
+  const last = Array(10).fill(-1);
+  for (let i = 0; i <= end; i += 1) last[series[i] - 1] = i;
+  const gap = last.map(index => index >= 0 ? end + 1 - index : end + 2);
+  return { key: 'winner-gap', label: 'давность выхода столба', values: gap.map(v => Math.log1p(v)), gap, support: end + 1 };
+}
+
+function directColumnModel(draws, type, winnerSeries = null, endIndex = draws.length - 1) {
+  const series = winnerSeries || draws.slice(0, endIndex + 1).map(winner);
+  if (endIndex < 2 || series.length <= endIndex) throw new Error('Для прямого прогноза нужно не меньше трёх тиражей');
+  const sprint = type === 'sprint';
+  const experts = sprint
+    ? [recentWinnerExpert(series, endIndex, 20), ewmaWinnerExpert(series, endIndex, 5), pairWinnerExpert(series, endIndex)]
+    : [recentWinnerExpert(series, endIndex, 200), transitionWinnerExpert(series, endIndex, 100), pairWinnerExpert(series, endIndex), gapWinnerExpert(series, endIndex)];
+
+  const rows = Array.from({ length: 10 }, (_, index) => ({ col: index + 1, score: 0, reasons: [] }));
+  for (const expert of experts) {
+    const points = averageRankPoints(expert.values);
+    for (let c = 0; c < 10; c += 1) {
+      rows[c].score += points[c];
+      if (expert.key.startsWith('recent-')) rows[c].reasons.push(`${expert.label}: ${expert.count[c]}/${expert.support}`);
+      else if (expert.key.startsWith('ewma-')) rows[c].reasons.push(`${expert.label}: ${Math.round(expert.values[c] * 100)}%`);
+      else if (expert.key === 'exact-pair') rows[c].reasons.push(`${expert.label}: ${expert.count[c]} из ${expert.support}`);
+      else if (expert.key.startsWith('transition-')) rows[c].reasons.push(`${expert.label}: ${expert.count[c]} из ${expert.support}`);
+      else if (expert.key === 'winner-gap') rows[c].reasons.push(`не выходил ${expert.gap[c]} тир.`);
+    }
+  }
+
+  const rotation = Number(draws[endIndex]?.draw || endIndex) % 10;
+  rows.sort((a, b) => b.score - a.score || ((a.col - 1 - rotation + 10) % 10) - ((b.col - 1 - rotation + 10) % 10));
+  const scoreMax = experts.length * 10;
+  return {
+    modelVersion: DIRECT_MODEL_VERSION,
+    type,
+    window: sprint ? 20 : 200,
+    columns: rows.slice(0, 4).map(row => row.col),
+    rows: rows.slice(0, 4).map(row => ({ ...row, scoreMax })),
+    experts: experts.map(expert => ({ key: expert.key, label: expert.label, support: expert.support })),
+    tieRotation: rotation + 1
+  };
+}
+
+function makeModel(draws, type, winnerSeries = null) {
+  return directColumnModel(draws, type, winnerSeries, draws.length - 1);
 }
 
 function stripTags(s) {
@@ -274,9 +322,9 @@ function parsePage(html) {
       const n = Number(m[1]);
       if (n >= 1 && n <= 80) balls.push(n);
     }
-    if (balls.length !== 20 || new Set(balls).size !== 20) continue;
+    if (balls.length !== 20) continue;
     const text = stripTags(tr);
-    const dateMatch = text.match(/(\d{2}\.\d{2}\.\d{2,4})\s*,?\s*(\d{2}:\d{2})/);
+    const dateMatch = text.match(/(\d{2}\.\d{2}\.\d{2,4})\s*,\s*(\d{2}:\d{2})/);
     if (!dateMatch) continue;
     const beforeDate = text.slice(0, text.indexOf(dateMatch[0]));
     const nums = [...beforeDate.matchAll(/(?:^|\s)(\d[\d\s\u00a0]{4,8})(?=\s|$)/g)]
@@ -290,61 +338,23 @@ function parsePage(html) {
   return [...unique.values()].sort((a, b) => a.draw - b.draw);
 }
 
-function parseReaderText(text) {
-  const rows = [];
-  for (const line of String(text || '').split(/\r?\n/)) {
-    const balls = [...line.matchAll(/\[Button:\s*(\d{1,2})\]/gi)].slice(0, 20).map(m => Number(m[1]));
-    if (balls.length !== 20 || new Set(balls).size !== 20) continue;
-    const dateMatch = line.match(/(\d{2}\.\d{2}\.\d{2,4})\s*,?\s*(\d{2}:\d{2})/);
-    if (!dateMatch) continue;
-    const beforeDate = line.slice(0, line.indexOf(dateMatch[0]));
-    const drawMatches = beforeDate.match(/\b\d{3}[\s\u00a0]?\d{3}\b|\b\d{6}\b/g) || [];
-    const raw = drawMatches.at(-1);
-    const draw = raw ? Number(raw.replace(/[\s\u00a0]/g, '')) : 0;
-    if (draw < 100000 || draw > 999999) continue;
-    rows.push({ draw, date: dateMatch[1], time: dateMatch[2], balls });
-  }
-  const unique = new Map(rows.map(x => [x.draw, x]));
-  return [...unique.values()].sort((a, b) => a.draw - b.draw);
-}
-
 function validDraw(d) {
-  return Number.isInteger(Number(d?.draw)) && Array.isArray(d?.balls) && d.balls.length === 20 && new Set(d.balls.map(Number)).size === 20 && d.balls.every(n => Number(n) >= 1 && Number(n) <= 80);
-}
-
-async function fetchFresh() {
-  const urls = [
-    SOURCE_URL,
-    `https://r.jina.ai/${SOURCE_URL}`
-  ];
-  let lastError;
-  for (const url of urls) {
-    try {
-      const response = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 GitHub-Actions Positron-Keno/2.2', accept: 'text/html,text/plain,*/*' }, signal: AbortSignal.timeout(35000) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const text = await response.text();
-      const fresh = parsePage(text);
-      if (fresh.length) return fresh;
-      const reader = parseReaderText(text);
-      if (reader.length) return reader;
-      throw new Error('тиражи не распознаны');
-    } catch (e) { lastError = e; }
-  }
-  throw lastError || new Error('Источник недоступен');
+  return Number.isInteger(Number(d?.draw)) && Array.isArray(d?.balls) && d.balls.length === 20 && d.balls.every(n => Number(n) >= 1 && Number(n) <= 80);
 }
 
 async function main() {
-  const fresh = await fetchFresh();
+  const response = await fetch(SOURCE_URL, { headers: { 'user-agent': 'Mozilla/5.0 GitHub-Actions Positron-Keno/1.0', accept: 'text/html' } });
+  if (!response.ok) throw new Error(`Lucky Numbers HTTP ${response.status}`);
+  const html = await response.text();
+  const fresh = parsePage(html);
+  if (!fresh.length) throw new Error('Не удалось распознать ни одного тиража на странице Lucky Numbers');
+
   const oldHistory = fs.existsSync(HISTORY_FILE) ? JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8')) : [];
   const map = new Map();
-  for (const d of [...oldHistory, ...fresh]) {
-    if (!validDraw(d)) continue;
-    map.set(Number(d.draw), { draw: Number(d.draw), date: String(d.date), time: String(d.time), balls: d.balls.map(Number) });
-  }
+  for (const d of [...oldHistory, ...fresh]) if (validDraw(d)) map.set(Number(d.draw), { draw: Number(d.draw), date: String(d.date), time: String(d.time), balls: d.balls.map(Number) });
   const draws = [...map.values()].sort((a, b) => a.draw - b.draw);
-  if (draws.length < 300) throw new Error(`Для честной модели нужно минимум 300 тиражей, сейчас ${draws.length}`);
+  if (draws.length < 60) throw new Error(`Для расчёта нужно 60 тиражей, сейчас ${draws.length}`);
 
-  const cache = makeCache(draws);
   const previous = fs.existsSync(OUTPUT_FILE) ? JSON.parse(fs.readFileSync(OUTPUT_FILE, 'utf8')) : {};
   const forecasts = Array.isArray(previous.forecasts) ? previous.forecasts : [];
   const byDraw = new Map(draws.map(d => [d.draw, d]));
@@ -354,47 +364,36 @@ async function main() {
     const actual = byDraw.get(Number(row.targetDraw));
     if (!actual) continue;
     const actualWinner = winner(actual);
-    const place = Array.isArray(row.columns) ? row.columns.map(Number).indexOf(actualWinner) : -1;
+    const place = Array.isArray(row.columns) ? row.columns.indexOf(actualWinner) : -1;
     row.checked = true;
     row.actualWinner = actualWinner;
     row.place = place >= 0 ? place + 1 : 0;
     row.hit = place >= 0 && place < 4;
     row.first = place === 0;
-    if (Array.isArray(row.numbers)) {
-      const actualNumbers = new Set(actual.balls.map(Number));
-      row.numberHits = row.numbers.map(Number).filter(n => actualNumbers.has(n));
-      row.numberHitCount = row.numberHits.length;
-    }
     row.checkedAt = new Date().toISOString();
   }
 
   const last = draws.at(-1);
-  const sprint = makeModel(draws, cache, 'sprint');
-  const marathon = makeModel(draws, cache, 'marathon');
-  const current = { sprint, marathon };
-
+  const winnerSeries = draws.map(winner);
+  const current = { sprint: makeModel(draws, 'sprint', winnerSeries), marathon: makeModel(draws, 'marathon', winnerSeries) };
   for (const type of ['sprint', 'marathon']) {
-    if (!forecasts.some(x => x.type === type && Number(x.afterDraw) === last.draw)) {
-      forecasts.push({
-        type,
-        afterDraw: last.draw,
-        targetDraw: last.draw + 1,
-        createdAt: new Date().toISOString(),
-        columns: current[type].columns,
-        columnProbabilities: current[type].columnProbabilities,
-        numbers: current[type].numbers,
-        algorithmVersion: ALGORITHM_VERSION,
-        signal: current[type].signal,
-        signalScore: current[type].signalScore,
-        backtest: current[type].backtest,
-        checked: false
-      });
-    }
+    const nextRecord = {
+      type,
+      modelVersion: DIRECT_MODEL_VERSION,
+      afterDraw: last.draw,
+      targetDraw: last.draw + 1,
+      createdAt: new Date().toISOString(),
+      columns: current[type].columns,
+      checked: false
+    };
+    const existing = forecasts.find(x => x.type === type && Number(x.afterDraw) === last.draw);
+    if (!existing) forecasts.push(nextRecord);
+    else if (!existing.checked && existing.modelVersion !== DIRECT_MODEL_VERSION) Object.assign(existing, nextRecord);
   }
 
   const output = {
-    version: 3,
-    algorithmVersion: ALGORITHM_VERSION,
+    version: 2,
+    modelVersion: DIRECT_MODEL_VERSION,
     source: SOURCE_URL,
     updatedAt: new Date().toISOString(),
     latestDraw: last.draw,
@@ -407,9 +406,8 @@ async function main() {
 
   fs.writeFileSync(HISTORY_FILE, JSON.stringify(draws));
   fs.writeFileSync(OUTPUT_FILE, JSON.stringify(output, null, 2) + '\n');
-  console.log(`Готово: тираж №${last.draw}; архив ${draws.length}; алгоритм ${ALGORITHM_VERSION}`);
-  console.log(`Спринт: ${sprint.columns.join(', ')}; top4 backtest ${(sprint.backtest.top4Rate * 100).toFixed(1)}%`);
-  console.log(`Марафон: ${marathon.columns.join(', ')}; top4 backtest ${(marathon.backtest.top4Rate * 100).toFixed(1)}%`);
+  console.log(`Готово: тираж №${last.draw}; архив ${draws.length}; прогнозы ${output.forecasts.length}`);
+  console.log(`Спринт: ${current.sprint.columns.join(', ')}; Марафон: ${current.marathon.columns.join(', ')}`);
 }
 
 main().catch(error => {
