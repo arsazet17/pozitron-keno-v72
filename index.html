@@ -63,10 +63,6 @@ button,input,select{font:inherit}
 .break{margin-top:7px;padding:6px;border-radius:8px;text-align:center;background:#302812;border:1px solid #6e5b20;color:#ffe48b;font-weight:850}
 .open{font-size:12px;color:var(--muted);margin-top:6px}
 .tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px}
-.tools.main-tools{grid-template-columns:repeat(3,minmax(0,1fr))}
-.main-tools .tool{min-width:0;min-height:48px;font-size:13px;line-height:1.2;white-space:normal}
-.main-tools .sm-split{display:grid;grid-template-columns:1fr 1fr;gap:6px;min-width:0}
-.main-tools .sm-split .tool{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;font-size:28px;padding:8px 3px;white-space:nowrap}
 .tool{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:9px 3px;font-size:12px;font-weight:800}
 .panel{display:none}.panel.show{display:block}
 .row{background:#101f33;border:1px solid #263e5b;border-radius:9px;padding:9px;margin-top:6px;font-size:13px}
@@ -144,24 +140,13 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div id="chains"></div>
 
   <div class="section"><span>Инструменты</span></div>
-  <div class="tools main-tools">
+  <div class="tools">
     <button class="tool" data-panel="searchPanel">🔍 Поиск</button>
     <button class="tool" data-panel="analogsPanel">🎯 Аналоги+</button>
     <button class="tool" data-panel="archivePanel">📅 Архив</button>
     <button class="tool" data-panel="dataPanel">💾 База</button>
-    <div class="sm-split">
-      <button id="sprintBtn" class="tool" type="button" aria-label="Спринт" title="Спринт">🏃</button>
-      <button id="marathonBtn" class="tool" type="button" aria-label="Марафон" title="Марафон">🐢</button>
-    </div>
-    <button id="maxRetroToolBtn" class="tool" type="button">🧠 AI Переходов ▶</button>
+    <button class="tool" data-panel="infoPanel">ℹ️ О v7.2</button>
   </div>
-
-  <section id="sprintMarathonPanel" class="card panel" aria-live="polite">
-    <div class="sm-title">🏃 Спринт / 🐢 Марафон</div>
-    <div id="sprintMarathonResult">
-      <div class="small">Выберите «Спринт» или «Марафон».</div>
-    </div>
-  </section>
 
   <section id="searchPanel" class="card panel">
     <div class="flex">
@@ -223,7 +208,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <form method="dialog">
     <div class="section" style="margin-top:0"><span>Настройки обновления</span><button class="icon">✕</button></div>
     <label class="small">Адрес источника тиражей</label>
-    <input id="sourceUrl" value="./keno-history.json">
+    <input id="sourceUrl" value="https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws">
     <div style="height:8px"></div>
     <label class="small">Проверять автоматически</label>
     <select id="interval">
@@ -245,61 +230,6 @@ const pad=n=>String(n).padStart(2,'0');
 const column=n=>n%10===0?10:n%10;
 let draws=[],mode='fall',timer=null;
 const analysisCache=new WeakMap();
-const DEFAULT_DRAW_SOURCE='./keno-history.json';
-const LEGACY_SOURCE_PART='pozitron-keno-v3.netlify.app';
-const CACHE_FIX_KEY='pozitron_v72_cache_fix_20260729_2';
-
-function configuredDrawSource(){
- const saved=String(localStorage.getItem('pozitron_v5_url')||'').trim();
- if(!saved||saved.includes(LEGACY_SOURCE_PART)){
-  localStorage.setItem('pozitron_v5_url',DEFAULT_DRAW_SOURCE);
-  return DEFAULT_DRAW_SOURCE
- }
- return saved
-}
-function drawSourceCandidates(){
- const configured=configuredDrawSource();
- const candidates=[
-  configured,
-  new URL('keno-history.json',document.baseURI).href,
-  'https://arsazet17.github.io/pozitron-keno-v72/keno-history.json',
-  'https://raw.githubusercontent.com/arsazet17/pozitron-keno-v72/main/keno-history.json'
- ];
- return [...new Set(candidates.filter(Boolean))]
-}
-async function removeLegacyCacheOnce(){
- if(localStorage.getItem(CACHE_FIX_KEY)==='1')return false;
- let changed=false;
- try{
-  if('serviceWorker' in navigator){
-   const regs=await navigator.serviceWorker.getRegistrations();
-   for(const reg of regs){changed=(await reg.unregister())||changed}
-  }
- }catch(_){}
- try{
-  if('caches' in window){
-   const keys=await caches.keys();
-   for(const key of keys){if(/pozitron|keno|v7/i.test(key)){changed=(await caches.delete(key))||changed}}
-  }
- }catch(_){}
- localStorage.setItem(CACHE_FIX_KEY,'1');
- if(changed){location.reload();return true}
- return false
-}
-async function fetchDrawHistory(){
- let lastError=new Error('источник недоступен');
- for(const url of drawSourceCandidates()){
-  try{
-   const response=await fetch(url,{cache:'no-store',mode:'cors',credentials:'same-origin'});
-   if(!response.ok)throw new Error('HTTP '+response.status);
-   const text=await response.text();
-   const items=parse(text);
-   if(!items.length)throw new Error('нет распознанных тиражей');
-   return {items,url}
-  }catch(error){lastError=error}
- }
- throw lastError
-}
 
 function normDate(v){
  v=String(v||'').trim();
@@ -310,12 +240,6 @@ function normDate(v){
  return v.slice(0,10);
 }
 function showDate(v){const p=normDate(v).split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:v}
-function dateKey(v){
- v=String(v||'').trim();
- const short=v.match(/^(\d{2})[.\-/](\d{2})[.\-/](\d{2})$/);
- if(short)return `20${short[3]}-${short[2]}-${short[1]}`;
- return normDate(v);
-}
 function normTime(v){return String(v||'').match(/\d{1,2}:\d{2}(?::\d{2})?/)?.[0]||String(v||'')}
 function valid(o){
  const draw=Number(o.draw??o.number??o.drawNumber??o.id);
@@ -421,7 +345,7 @@ function renderCards(){
 }
 function minutes(t){const m=normTime(t).match(/(\d+):(\d+)/);return m?+m[1]*60 + +m[2]:0}
 function renderChains(){
- const date=$('chainDate').value||draws.at(-1)?.date||'',day=draws.filter(d=>dateKey(d.date)===dateKey(date));
+ const date=$('chainDate').value||draws.at(-1)?.date||'',day=draws.filter(d=>normDate(d.date)===normDate(date));
  if(!day.length){$('chains').innerHTML='<div class="card small">За выбранную дату данных нет.</div>';return}
  const blocks=[];let cur=[];
  day.forEach(d=>{if(cur.length&&minutes(d.time)-minutes(cur.at(-1).time)>30){blocks.push(cur);cur=[]}cur.push(d);if(cur.length===5){blocks.push(cur);cur=[]}});
@@ -737,22 +661,18 @@ async function runQualityAudit(){
 
 function render(){
  $('status').textContent=draws.length?`v7.2 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.2 · база: 0';
- if(draws.length&&!$('chainDate').value)$('chainDate').value=dateKey(draws.at(-1).date);
+ if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
  renderCards();renderChains();renderArchive();renderLivePredictionCheck();renderPredictionHistory()
 }
 async function update(){
+ const url=(localStorage.getItem('pozitron_v5_url')||'https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws').trim();
+ if(!url){$('status').textContent='Источник не настроен — нажмите ⚙';return}
  $('status').textContent='Проверяю новые тиражи…';
  try{
-  const result=await fetchDrawHistory();
-  const added=merge(result.items);
-  render();
-  $('status').textContent=added?`Добавлено ${added} · всего ${draws.length}`:`База актуальна · всего ${draws.length}`
- }catch(e){
-  render();
-  $('status').textContent=draws.length
-   ?`v7.2 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`
-   :'Нет связи с файлом истории. Повторите обновление позже.'
- }
+  const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+  const arr=parse(await r.text());if(!arr.length)throw new Error('нет распознанных тиражей');
+  const added=merge(arr);render();$('status').textContent=`Добавлено ${added} · всего ${draws.length}`
+ }catch(e){render();$('status').textContent='Обновление не выполнено: '+e.message}
 }
 function auto(){
  clearInterval(timer);timer=null;
@@ -768,8 +688,8 @@ $('findBtn').onclick=()=>{const n=Number($('searchDraw').value),d=draws.find(x=>
 $('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const added=merge(parse(r.result));render();$('status').textContent=`Импорт: добавлено ${added} · всего ${draws.length}`};r.readAsText(f,'UTF-8')};
 $('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify({version:'7.2',exportedAt:new Date().toISOString(),draws},null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='ПОЗИТРОН_КЕНО_v7_2_БАЗА.json';a.click();URL.revokeObjectURL(u)};
 $('sync').onclick=update;$('sync2').onclick=update;
-$('settingsBtn').onclick=()=>{$('sourceUrl').value=configuredDrawSource();$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
-$('saveSettings').onclick=()=>{localStorage.setItem('pozitron_v5_url',$('sourceUrl').value.trim()||DEFAULT_DRAW_SOURCE);localStorage.setItem('pozitron_v5_interval',$('interval').value);auto()};
+$('settingsBtn').onclick=()=>{$('sourceUrl').value=localStorage.getItem('pozitron_v5_url')||'https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws';$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
+$('saveSettings').onclick=()=>{localStorage.setItem('pozitron_v5_url',$('sourceUrl').value.trim());localStorage.setItem('pozitron_v5_interval',$('interval').value);auto()};
 $('chainDate').onchange=renderChains;
 const forecastHistoryToggle=$('forecastHistoryToggle');
 const forecastHistoryContent=$('forecastHistoryContent');
@@ -781,14 +701,9 @@ if(forecastHistoryToggle&&forecastHistoryContent){
   forecastHistoryToggle.textContent=isOpen?'📋 Прогнозы 5 тир ▶':'📋 Прогнозы 5 тир ▼';
  };
 }
-async function startApp(){
- load();render();auto();
- const reloading=await removeLegacyCacheOnce();
- if(!reloading)setTimeout(update,800)
-}
-startApp();
+load();render();auto();setTimeout(update,800);
 </script>
-<script src="sprint-marathon.js?v=20260803-keno72-algo210-original-layout"></script>
-<script src="max-retro.js?v=20260803-original-layout"></script>
+<script src="sprint-marathon.js?v=72-symbol-colors-20260804-1443"></script>
+<script src="max-retro.js"></script>
 </body>
 </html>
