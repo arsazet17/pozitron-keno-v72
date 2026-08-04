@@ -2,96 +2,96 @@
   "version": 3,
   "algorithmVersion": "2.2.0",
   "source": "https://lucky-numbers.ru/lottery/ru/keno2",
-  "updatedAt": "2026-08-04T12:20:38.676Z",
-  "latestDraw": 324898,
+  "updatedAt": "2026-08-04T12:25:37.786Z",
+  "latestDraw": 324899,
   "latestDate": "04.08.26",
-  "latestTime": "14:17",
-  "drawsStored": 30279,
+  "latestTime": "15:17",
+  "drawsStored": 30280,
   "current": {
     "sprint": {
       "algorithmVersion": "2.2.0",
       "columns": [
+        5,
         4,
         6,
-        1,
-        7
+        3
       ],
       "columnProbabilities": [
         {
-          "col": 4,
+          "col": 5,
           "percent": 12.7
         },
         {
+          "col": 4,
+          "percent": 11.4
+        },
+        {
           "col": 6,
-          "percent": 12.2
+          "percent": 10.8
         },
         {
-          "col": 1,
-          "percent": 11.5
-        },
-        {
-          "col": 7,
-          "percent": 10
+          "col": 3,
+          "percent": 10.7
         }
       ],
       "allColumnProbabilities": [
         {
           "col": 1,
-          "percent": 11.5
-        },
-        {
-          "col": 2,
-          "percent": 9.2
-        },
-        {
-          "col": 3,
           "percent": 7.6
         },
         {
+          "col": 2,
+          "percent": 7.4
+        },
+        {
+          "col": 3,
+          "percent": 10.7
+        },
+        {
           "col": 4,
-          "percent": 12.7
+          "percent": 11.4
         },
         {
           "col": 5,
-          "percent": 9.3
+          "percent": 12.7
         },
         {
           "col": 6,
-          "percent": 12.2
+          "percent": 10.8
         },
         {
           "col": 7,
-          "percent": 10
+          "percent": 9.9
         },
         {
           "col": 8,
-          "percent": 8.6
+          "percent": 9.5
         },
         {
           "col": 9,
-          "percent": 9.2
+          "percent": 10.5
         },
         {
           "col": 10,
-          "percent": 9.7
+          "percent": 9.4
         }
       ],
       "numbers": [
-        26,
-        41,
-        17,
-        37,
+        64,
+        56,
+        13,
+        55,
         24,
-        47
+        46
       ],
       "numberCount": 6,
       "signal": "слабый",
       "signalScore": 0.4,
       "backtest": {
         "tests": 60,
-        "first": 11,
+        "first": 10,
         "top4": 24,
-        "top1Rate": 0.18333333333333332,
+        "top1Rate": 0.16666666666666666,
         "top4Rate": 0.4,
         "uplift": 0,
         "signal": "слабый"
@@ -100,42 +100,40 @@
       "regimes": [
         {
           "state": "0",
-          "percent": 13,
-          "columns": [
-            4
-          ]
+          "percent": 0,
+          "columns": []
         },
         {
           "state": "1",
-          "percent": 19,
+          "percent": 21,
           "columns": [
-            9,
-            10
+            6,
+            9
           ]
         },
         {
           "state": "2",
-          "percent": 43,
+          "percent": 71,
           "columns": [
-            1,
+            2,
+            3,
+            4,
             5,
-            6,
-            7
+            7,
+            8,
+            10
           ]
         },
         {
           "state": "3",
-          "percent": 17,
-          "columns": [
-            2,
-            3
-          ]
+          "percent": 0,
+          "columns": []
         },
         {
           "state": "4+",
-          "percent": 9,
+          "percent": 8,
           "columns": [
-            8
+            1
           ]
         }
       ]
@@ -143,133 +141,131 @@
     "marathon": {
       "algorithmVersion": "2.2.0",
       "columns": [
-        7,
-        6,
-        4,
-        5
+        5,
+        3,
+        8,
+        10
       ],
       "columnProbabilities": [
         {
-          "col": 7,
-          "percent": 12
-        },
-        {
-          "col": 6,
-          "percent": 11.3
-        },
-        {
-          "col": 4,
-          "percent": 11.1
-        },
-        {
           "col": 5,
+          "percent": 13.1
+        },
+        {
+          "col": 3,
+          "percent": 11.2
+        },
+        {
+          "col": 8,
           "percent": 11.1
+        },
+        {
+          "col": 10,
+          "percent": 10.3
         }
       ],
       "allColumnProbabilities": [
         {
           "col": 1,
-          "percent": 7.2
+          "percent": 6.6
         },
         {
           "col": 2,
-          "percent": 9.1
+          "percent": 8.6
         },
         {
           "col": 3,
-          "percent": 9.8
+          "percent": 11.2
         },
         {
           "col": 4,
-          "percent": 11.1
-        },
-        {
-          "col": 5,
-          "percent": 11.1
-        },
-        {
-          "col": 6,
-          "percent": 11.3
-        },
-        {
-          "col": 7,
-          "percent": 12
-        },
-        {
-          "col": 8,
-          "percent": 7.4
-        },
-        {
-          "col": 9,
           "percent": 10.2
         },
         {
+          "col": 5,
+          "percent": 13.1
+        },
+        {
+          "col": 6,
+          "percent": 9.6
+        },
+        {
+          "col": 7,
+          "percent": 9.9
+        },
+        {
+          "col": 8,
+          "percent": 11.1
+        },
+        {
+          "col": 9,
+          "percent": 9.4
+        },
+        {
           "col": 10,
-          "percent": 10.7
+          "percent": 10.3
         }
       ],
       "numbers": [
-        17,
-        66,
+        10,
+        43,
         55,
         25,
-        16,
-        74,
-        76,
-        45
+        60,
+        45,
+        5,
+        53
       ],
       "numberCount": 8,
       "signal": "слабый",
-      "signalScore": 0.4166666666666667,
+      "signalScore": 0.4,
       "backtest": {
         "tests": 60,
         "first": 7,
-        "top4": 25,
+        "top4": 24,
         "top1Rate": 0.11666666666666667,
-        "top4Rate": 0.4166666666666667,
-        "uplift": 0.016666666666666663,
+        "top4Rate": 0.4,
+        "uplift": 0,
         "signal": "слабый"
       },
       "analogs": 180,
       "regimes": [
         {
           "state": "0",
-          "percent": 11,
-          "columns": [
-            4
-          ]
+          "percent": 0,
+          "columns": []
         },
         {
           "state": "1",
-          "percent": 21,
+          "percent": 19,
           "columns": [
-            9,
-            10
+            6,
+            9
           ]
         },
         {
           "state": "2",
-          "percent": 42,
+          "percent": 74,
           "columns": [
-            1,
+            2,
+            3,
+            4,
             5,
-            6,
-            7
+            7,
+            8,
+            10
           ]
         },
         {
           "state": "3",
-          "percent": 19,
-          "columns": [
-            2,
-            3
-          ]
+          "percent": 0,
+          "columns": []
         },
         {
           "state": "4+",
           "percent": 7,
           "columns": [
-            8
+            1
           ]
         }
       ]
@@ -12818,7 +12814,16 @@
       "algorithmVersion": "2.1.0",
       "signal": "сильный",
       "signalScore": 0.922,
-      "checked": false
+      "checked": true,
+      "actualWinner": 1,
+      "place": 4,
+      "hit": true,
+      "first": false,
+      "numberHits": [
+        41
+      ],
+      "numberHitCount": 1,
+      "checkedAt": "2026-08-04T12:25:37.503Z"
     },
     {
       "type": "marathon",
@@ -12844,6 +12849,119 @@
       "algorithmVersion": "2.1.0",
       "signal": "средний",
       "signalScore": 0.388,
+      "checked": true,
+      "actualWinner": 1,
+      "place": 0,
+      "hit": false,
+      "first": false,
+      "numberHits": [
+        20
+      ],
+      "numberHitCount": 1,
+      "checkedAt": "2026-08-04T12:25:37.503Z"
+    },
+    {
+      "type": "sprint",
+      "afterDraw": 324899,
+      "targetDraw": 324900,
+      "createdAt": "2026-08-04T12:25:37.786Z",
+      "columns": [
+        5,
+        4,
+        6,
+        3
+      ],
+      "columnProbabilities": [
+        {
+          "col": 5,
+          "percent": 12.7
+        },
+        {
+          "col": 4,
+          "percent": 11.4
+        },
+        {
+          "col": 6,
+          "percent": 10.8
+        },
+        {
+          "col": 3,
+          "percent": 10.7
+        }
+      ],
+      "numbers": [
+        64,
+        56,
+        13,
+        55,
+        24,
+        46
+      ],
+      "algorithmVersion": "2.2.0",
+      "signal": "слабый",
+      "signalScore": 0.4,
+      "backtest": {
+        "tests": 60,
+        "first": 10,
+        "top4": 24,
+        "top1Rate": 0.16666666666666666,
+        "top4Rate": 0.4,
+        "uplift": 0,
+        "signal": "слабый"
+      },
+      "checked": false
+    },
+    {
+      "type": "marathon",
+      "afterDraw": 324899,
+      "targetDraw": 324900,
+      "createdAt": "2026-08-04T12:25:37.786Z",
+      "columns": [
+        5,
+        3,
+        8,
+        10
+      ],
+      "columnProbabilities": [
+        {
+          "col": 5,
+          "percent": 13.1
+        },
+        {
+          "col": 3,
+          "percent": 11.2
+        },
+        {
+          "col": 8,
+          "percent": 11.1
+        },
+        {
+          "col": 10,
+          "percent": 10.3
+        }
+      ],
+      "numbers": [
+        10,
+        43,
+        55,
+        25,
+        60,
+        45,
+        5,
+        53
+      ],
+      "algorithmVersion": "2.2.0",
+      "signal": "слабый",
+      "signalScore": 0.4,
+      "backtest": {
+        "tests": 60,
+        "first": 7,
+        "top4": 24,
+        "top1Rate": 0.11666666666666667,
+        "top4Rate": 0.4,
+        "uplift": 0,
+        "signal": "слабый"
+      },
       "checked": false
     }
   ]
