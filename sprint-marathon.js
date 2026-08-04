@@ -553,7 +553,7 @@
     const tail = seq.slice(-10);
     const pred = analogForecast(tail, 1, end - 1, end);
     const ranked = rankColumns(pred, Math.min(40, chosen.length), end);
-    const cols = ranked.slice(0, 6);
+    const cols = ranked.slice(0, 4);
     const nums = rankMarathonNumbers(cols.map(x => x.col), Math.min(40, chosen.length), end, sprintNums);
     return { name: 'МАРАФОН', seq, pred, cols, nums, type: classify(seq), window: chosen.length, startIndex: start, endIndex: end, typeKey: 'marathon' };
   }
