@@ -1,276 +1,163 @@
 {
-  "version": 3,
-  "algorithmVersion": "2.2.0",
+  "version": 2,
+  "modelVersion": "direct-v2-20260804",
   "source": "https://lucky-numbers.ru/lottery/ru/keno2",
-  "updatedAt": "2026-08-04T13:55:36.817Z",
-  "latestDraw": 324901,
+  "updatedAt": "2026-08-04T14:01:04.070Z",
+  "latestDraw": 324902,
   "latestDate": "04.08.26",
-  "latestTime": "16:17",
-  "drawsStored": 30282,
+  "latestTime": "16:47",
+  "drawsStored": 30283,
   "current": {
     "sprint": {
-      "algorithmVersion": "2.2.0",
+      "modelVersion": "direct-v2-20260804",
+      "type": "sprint",
+      "window": 20,
       "columns": [
-        4,
-        1,
+        5,
         8,
-        10
+        2,
+        1
       ],
-      "columnProbabilities": [
+      "rows": [
         {
-          "col": 4,
-          "percent": 12.2
-        },
-        {
-          "col": 1,
-          "percent": 12.1
+          "col": 5,
+          "score": 25,
+          "reasons": [
+            "20 последних тиражей: 2/20",
+            "быстрый вес 5: 22%",
+            "точная пара ст5→ст2: 31 из 274"
+          ],
+          "scoreMax": 30
         },
         {
           "col": 8,
-          "percent": 11.1
-        },
-        {
-          "col": 10,
-          "percent": 10.9
-        }
-      ],
-      "allColumnProbabilities": [
-        {
-          "col": 1,
-          "percent": 12.1
+          "score": 24.5,
+          "reasons": [
+            "20 последних тиражей: 4/20",
+            "быстрый вес 5: 20%",
+            "точная пара ст5→ст2: 30 из 274"
+          ],
+          "scoreMax": 30
         },
         {
           "col": 2,
-          "percent": 9.1
+          "score": 20.5,
+          "reasons": [
+            "20 последних тиражей: 4/20",
+            "быстрый вес 5: 20%",
+            "точная пара ст5→ст2: 23 из 274"
+          ],
+          "scoreMax": 30
         },
         {
-          "col": 3,
-          "percent": 10.1
-        },
-        {
-          "col": 4,
-          "percent": 12.2
-        },
-        {
-          "col": 5,
-          "percent": 10.1
-        },
-        {
-          "col": 6,
-          "percent": 8.6
-        },
-        {
-          "col": 7,
-          "percent": 9.4
-        },
-        {
-          "col": 8,
-          "percent": 11.1
-        },
-        {
-          "col": 9,
-          "percent": 6.5
-        },
-        {
-          "col": 10,
-          "percent": 10.9
+          "col": 1,
+          "score": 18.5,
+          "reasons": [
+            "20 последних тиражей: 3/20",
+            "быстрый вес 5: 14%",
+            "точная пара ст5→ст2: 26 из 274"
+          ],
+          "scoreMax": 30
         }
       ],
-      "numbers": [
-        44,
-        11,
-        74,
-        70,
-        78,
-        18
-      ],
-      "numberCount": 6,
-      "signal": "слабый",
-      "signalScore": 0.4,
-      "backtest": {
-        "tests": 60,
-        "first": 11,
-        "top4": 24,
-        "top1Rate": 0.18333333333333332,
-        "top4Rate": 0.4,
-        "uplift": 0,
-        "signal": "слабый"
-      },
-      "analogs": 90,
-      "regimes": [
+      "experts": [
         {
-          "state": "0",
-          "percent": 19,
-          "columns": [
-            6,
-            10
-          ]
+          "key": "recent-20",
+          "label": "20 последних тиражей",
+          "support": 20
         },
         {
-          "state": "1",
-          "percent": 0,
-          "columns": []
+          "key": "ewma-5",
+          "label": "быстрый вес 5",
+          "support": 30283
         },
         {
-          "state": "2",
-          "percent": 46,
-          "columns": [
-            2,
-            3,
-            7,
-            8,
-            9
-          ]
-        },
-        {
-          "state": "3",
-          "percent": 24,
-          "columns": [
-            1,
-            4
-          ]
-        },
-        {
-          "state": "4+",
-          "percent": 10,
-          "columns": [
-            5
-          ]
+          "key": "exact-pair",
+          "label": "точная пара ст5→ст2",
+          "support": 274
         }
-      ]
+      ],
+      "tieRotation": 3
     },
     "marathon": {
-      "algorithmVersion": "2.2.0",
+      "modelVersion": "direct-v2-20260804",
+      "type": "marathon",
+      "window": 200,
       "columns": [
-        1,
         3,
-        10,
-        2
+        7,
+        4,
+        6
       ],
-      "columnProbabilities": [
-        {
-          "col": 1,
-          "percent": 12.5
-        },
+      "rows": [
         {
           "col": 3,
-          "percent": 11.5
-        },
-        {
-          "col": 10,
-          "percent": 11.1
-        },
-        {
-          "col": 2,
-          "percent": 10.7
-        }
-      ],
-      "allColumnProbabilities": [
-        {
-          "col": 1,
-          "percent": 12.5
-        },
-        {
-          "col": 2,
-          "percent": 10.7
-        },
-        {
-          "col": 3,
-          "percent": 11.5
-        },
-        {
-          "col": 4,
-          "percent": 9.4
-        },
-        {
-          "col": 5,
-          "percent": 9.7
-        },
-        {
-          "col": 6,
-          "percent": 7.8
+          "score": 31.5,
+          "reasons": [
+            "200 последних тиражей: 23/200",
+            "после ст2 · 100 переходов: 3 из 11",
+            "точная пара ст5→ст2: 31 из 274",
+            "не выходил 8 тир."
+          ],
+          "scoreMax": 40
         },
         {
           "col": 7,
-          "percent": 9
+          "score": 27,
+          "reasons": [
+            "200 последних тиражей: 16/200",
+            "после ст2 · 100 переходов: 1 из 11",
+            "точная пара ст5→ст2: 34 из 274",
+            "не выходил 16 тир."
+          ],
+          "scoreMax": 40
         },
         {
-          "col": 8,
-          "percent": 9.6
+          "col": 4,
+          "score": 26,
+          "reasons": [
+            "200 последних тиражей: 26/200",
+            "после ст2 · 100 переходов: 1 из 11",
+            "точная пара ст5→ст2: 27 из 274",
+            "не выходил 6 тир."
+          ],
+          "scoreMax": 40
         },
         {
-          "col": 9,
-          "percent": 8.5
-        },
-        {
-          "col": 10,
-          "percent": 11.1
+          "col": 6,
+          "score": 24.5,
+          "reasons": [
+            "200 последних тиражей: 25/200",
+            "после ст2 · 100 переходов: 1 из 11",
+            "точная пара ст5→ст2: 26 из 274",
+            "не выходил 9 тир."
+          ],
+          "scoreMax": 40
         }
       ],
-      "numbers": [
-        22,
-        43,
-        10,
-        63,
-        50,
-        52,
-        3,
-        20
-      ],
-      "numberCount": 8,
-      "signal": "слабый",
-      "signalScore": 0.4166666666666667,
-      "backtest": {
-        "tests": 60,
-        "first": 8,
-        "top4": 25,
-        "top1Rate": 0.13333333333333333,
-        "top4Rate": 0.4166666666666667,
-        "uplift": 0.016666666666666663,
-        "signal": "слабый"
-      },
-      "analogs": 180,
-      "regimes": [
+      "experts": [
         {
-          "state": "0",
-          "percent": 19,
-          "columns": [
-            6,
-            10
-          ]
+          "key": "recent-200",
+          "label": "200 последних тиражей",
+          "support": 200
         },
         {
-          "state": "1",
-          "percent": 0,
-          "columns": []
+          "key": "transition-100",
+          "label": "после ст2 · 100 переходов",
+          "support": 11
         },
         {
-          "state": "2",
-          "percent": 49,
-          "columns": [
-            2,
-            3,
-            7,
-            8,
-            9
-          ]
+          "key": "exact-pair",
+          "label": "точная пара ст5→ст2",
+          "support": 274
         },
         {
-          "state": "3",
-          "percent": 22,
-          "columns": [
-            1,
-            4
-          ]
-        },
-        {
-          "state": "4+",
-          "percent": 10,
-          "columns": [
-            5
-          ]
+          "key": "winner-gap",
+          "label": "давность выхода столба",
+          "support": 30283
         }
-      ]
+      ],
+      "tieRotation": 3
     }
   },
   "forecasts": [
@@ -13160,7 +13047,12 @@
         "uplift": 0,
         "signal": "слабый"
       },
-      "checked": false
+      "checked": true,
+      "actualWinner": 2,
+      "place": 0,
+      "hit": false,
+      "first": false,
+      "checkedAt": "2026-08-04T14:01:04.029Z"
     },
     {
       "type": "marathon",
@@ -13213,6 +13105,39 @@
         "uplift": 0.016666666666666663,
         "signal": "слабый"
       },
+      "checked": true,
+      "actualWinner": 2,
+      "place": 4,
+      "hit": true,
+      "first": false,
+      "checkedAt": "2026-08-04T14:01:04.029Z"
+    },
+    {
+      "type": "sprint",
+      "modelVersion": "direct-v2-20260804",
+      "afterDraw": 324902,
+      "targetDraw": 324903,
+      "createdAt": "2026-08-04T14:01:04.070Z",
+      "columns": [
+        5,
+        8,
+        2,
+        1
+      ],
+      "checked": false
+    },
+    {
+      "type": "marathon",
+      "modelVersion": "direct-v2-20260804",
+      "afterDraw": 324902,
+      "targetDraw": 324903,
+      "createdAt": "2026-08-04T14:01:04.070Z",
+      "columns": [
+        3,
+        7,
+        4,
+        6
+      ],
       "checked": false
     }
   ]
