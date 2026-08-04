@@ -1,113 +1,113 @@
 {
-  "version": 2,
-  "algorithmVersion": "2.1.0",
+  "version": 3,
+  "algorithmVersion": "2.2.0",
   "source": "https://lucky-numbers.ru/lottery/ru/keno2",
-  "updatedAt": "2026-08-04T11:30:55.529Z",
+  "updatedAt": "2026-08-04T11:35:31.421Z",
   "latestDraw": 324898,
   "latestDate": "04.08.26",
   "latestTime": "14:17",
   "drawsStored": 30279,
   "current": {
     "sprint": {
-      "algorithmVersion": "2.1.0",
-      "columns": [
-        8,
-        2,
-        4,
-        1
-      ],
-      "numbers": [
-        68,
-        41,
-        22,
-        28,
-        24,
-        71
-      ],
-      "numberCount": 6,
-      "signal": "сильный",
-      "signalScore": 0.922,
-      "margin": 0.3379,
-      "regimes": [
-        {
-          "state": "0",
-          "percent": 9,
-          "columns": [
-            4
-          ]
-        },
-        {
-          "state": "1",
-          "percent": 25,
-          "columns": [
-            9,
-            10
-          ]
-        },
-        {
-          "state": "2",
-          "percent": 35,
-          "columns": [
-            1,
-            5,
-            6,
-            7
-          ]
-        },
-        {
-          "state": "3",
-          "percent": 21,
-          "columns": [
-            2,
-            3
-          ]
-        },
-        {
-          "state": "4+",
-          "percent": 10,
-          "columns": [
-            8
-          ]
-        }
-      ],
-      "exact": 17,
-      "near": 55848,
-      "switchCases": 1757,
-      "profileMatches": 2790
-    },
-    "marathon": {
-      "algorithmVersion": "2.1.0",
+      "algorithmVersion": "2.2.0",
       "columns": [
         4,
-        3,
-        10,
+        6,
+        1,
         7
       ],
-      "numbers": [
-        10,
-        17,
-        20,
-        43,
-        74,
-        53,
-        60,
-        37
+      "columnProbabilities": [
+        {
+          "col": 4,
+          "percent": 12.7
+        },
+        {
+          "col": 6,
+          "percent": 12.2
+        },
+        {
+          "col": 1,
+          "percent": 11.5
+        },
+        {
+          "col": 7,
+          "percent": 10
+        }
       ],
-      "numberCount": 8,
-      "signal": "средний",
-      "signalScore": 0.388,
-      "margin": 0.4644,
+      "allColumnProbabilities": [
+        {
+          "col": 1,
+          "percent": 11.5
+        },
+        {
+          "col": 2,
+          "percent": 9.2
+        },
+        {
+          "col": 3,
+          "percent": 7.6
+        },
+        {
+          "col": 4,
+          "percent": 12.7
+        },
+        {
+          "col": 5,
+          "percent": 9.3
+        },
+        {
+          "col": 6,
+          "percent": 12.2
+        },
+        {
+          "col": 7,
+          "percent": 10
+        },
+        {
+          "col": 8,
+          "percent": 8.6
+        },
+        {
+          "col": 9,
+          "percent": 9.2
+        },
+        {
+          "col": 10,
+          "percent": 9.7
+        }
+      ],
+      "numbers": [
+        26,
+        41,
+        17,
+        37,
+        24,
+        47
+      ],
+      "numberCount": 6,
+      "signal": "слабый",
+      "signalScore": 0.4,
+      "backtest": {
+        "tests": 60,
+        "first": 11,
+        "top4": 24,
+        "top1Rate": 0.18333333333333332,
+        "top4Rate": 0.4,
+        "uplift": 0,
+        "signal": "слабый"
+      },
+      "analogs": 90,
       "regimes": [
         {
           "state": "0",
-          "percent": 9,
+          "percent": 13,
           "columns": [
             4
           ]
         },
         {
           "state": "1",
-          "percent": 25,
+          "percent": 19,
           "columns": [
             9,
             10
@@ -115,7 +115,7 @@
         },
         {
           "state": "2",
-          "percent": 35,
+          "percent": 43,
           "columns": [
             1,
             5,
@@ -125,7 +125,7 @@
         },
         {
           "state": "3",
-          "percent": 21,
+          "percent": 17,
           "columns": [
             2,
             3
@@ -133,16 +133,146 @@
         },
         {
           "state": "4+",
-          "percent": 10,
+          "percent": 9,
           "columns": [
             8
           ]
         }
+      ]
+    },
+    "marathon": {
+      "algorithmVersion": "2.2.0",
+      "columns": [
+        7,
+        6,
+        4,
+        5
       ],
-      "exact": 17,
-      "near": 55848,
-      "switchCases": 1757,
-      "profileMatches": 2790
+      "columnProbabilities": [
+        {
+          "col": 7,
+          "percent": 12
+        },
+        {
+          "col": 6,
+          "percent": 11.3
+        },
+        {
+          "col": 4,
+          "percent": 11.1
+        },
+        {
+          "col": 5,
+          "percent": 11.1
+        }
+      ],
+      "allColumnProbabilities": [
+        {
+          "col": 1,
+          "percent": 7.2
+        },
+        {
+          "col": 2,
+          "percent": 9.1
+        },
+        {
+          "col": 3,
+          "percent": 9.8
+        },
+        {
+          "col": 4,
+          "percent": 11.1
+        },
+        {
+          "col": 5,
+          "percent": 11.1
+        },
+        {
+          "col": 6,
+          "percent": 11.3
+        },
+        {
+          "col": 7,
+          "percent": 12
+        },
+        {
+          "col": 8,
+          "percent": 7.4
+        },
+        {
+          "col": 9,
+          "percent": 10.2
+        },
+        {
+          "col": 10,
+          "percent": 10.7
+        }
+      ],
+      "numbers": [
+        17,
+        66,
+        55,
+        25,
+        16,
+        74,
+        76,
+        45
+      ],
+      "numberCount": 8,
+      "signal": "слабый",
+      "signalScore": 0.4166666666666667,
+      "backtest": {
+        "tests": 60,
+        "first": 7,
+        "top4": 25,
+        "top1Rate": 0.11666666666666667,
+        "top4Rate": 0.4166666666666667,
+        "uplift": 0.016666666666666663,
+        "signal": "слабый"
+      },
+      "analogs": 180,
+      "regimes": [
+        {
+          "state": "0",
+          "percent": 11,
+          "columns": [
+            4
+          ]
+        },
+        {
+          "state": "1",
+          "percent": 21,
+          "columns": [
+            9,
+            10
+          ]
+        },
+        {
+          "state": "2",
+          "percent": 42,
+          "columns": [
+            1,
+            5,
+            6,
+            7
+          ]
+        },
+        {
+          "state": "3",
+          "percent": 19,
+          "columns": [
+            2,
+            3
+          ]
+        },
+        {
+          "state": "4+",
+          "percent": 7,
+          "columns": [
+            8
+          ]
+        }
+      ]
     }
   },
   "forecasts": [
