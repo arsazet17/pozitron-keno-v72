@@ -306,7 +306,7 @@ function analysis(d){
  analysisCache.set(d,result);
  return result
 }
-function save(){localStorage.setItem('pozitron_v5_draws',JSON.stringify(draws))}
+function save(){try{const cache=draws.slice(-800);localStorage.setItem('pozitron_v5_draws',JSON.stringify(cache))}catch(e){try{localStorage.removeItem('pozitron_v5_draws')}catch(_){}}}
 function load(){try{draws=dedupe(JSON.parse(localStorage.getItem('pozitron_v5_draws')||'[]'))}catch{draws=[]}}
 function merge(a){const before=draws.length;draws=dedupe([...draws,...a]);save();return draws.length-before}
 function transitions(i){if(i<=0)return new Set();return new Set(draws[i-1].balls.filter(n=>draws[i].balls.includes(n)))}
