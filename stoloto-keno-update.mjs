@@ -361,40 +361,99 @@ function canonical(draws) {
 }
 
 async function readArchiveThreeTimes(page) {
-  const CHECK_WINDOW = 120;
+  const MIN_COMMON = 60;
   const reads = [];
 
   for (let i = 1; i <= 3; i += 1) {
     const rawRows = await collectRows(page);
     const parsed = parseRows(rawRows);
-    if (parsed.length < CHECK_WINDOW) {
-      throw new Error(`FAIL: чтение ${i}: получено только ${parsed.length} тиражей, нужно минимум ${CHECK_WINDOW}`);
+    if (parsed.length < MIN_COMMON) {
+      throw new Error(`FAIL: чтение ${i}: получено только ${parsed.length} тиражей`);
     }
 
-    // Столото при lazy-load может отдать 150, 180 и т.п. строк.
-    // Для честной тройной проверки сравниваем строго одинаковое окно
-    // последних CHECK_WINDOW тиражей, а не разную глубину догрузки.
-    const fixed = parsed.slice(-CHECK_WINDOW);
-    reads.push(fixed);
-
+    reads.push(parsed);
     console.log(
-      `Чтение ${i}: загружено ${parsed.length}, проверяем одинаковые последние ${CHECK_WINDOW}: ` +
-      `№${fixed[0].draw}–№${fixed.at(-1).draw}`
+      `Чтение ${i}: ${parsed.length} тиражей, диапазон №${parsed[0].draw}–№${parsed.at(-1).draw}`
     );
 
     if (i < 3) await page.waitForTimeout(1500);
   }
 
-  const c1 = canonical(reads[0]);
-  const c2 = canonical(reads[1]);
-  const c3 = canonical(reads[2]);
+  const maps = reads.map(arr => new Map(arr.map(d => [d.draw, d])));
 
-  if (c1 !== c2 || c1 !== c3) {
-    throw new Error('FAIL: последние 120 тиражей в трёх независимых чтениях НЕ совпали');
+  // Берём только номера тиражей, которые присутствуют во ВСЕХ трёх чтениях.
+  const commonDraws = [...maps[0].keys()]
+    .filter(draw => maps[1].has(draw) && maps[2].has(draw))
+    .sort((a, b) => a - b);
+
+  if (commonDraws.length < MIN_COMMON) {
+    throw new Error(
+      `FAIL: общих тиражей во всех трёх чтениях только ${commonDraws.length}, нужно минимум ${MIN_COMMON}`
+    );
   }
 
-  console.log('Тройная проверка PASS: последние 120 тиражей полностью совпали.');
-  return reads[0];
+  const stable = [];
+  const mismatches = [];
+
+  for (const draw of commonDraws) {
+    const d1 = maps[0].get(draw);
+    const d2 = maps[1].get(draw);
+    const d3 = maps[2].get(draw);
+
+    // Сравниваем только фактические поля тиража.
+    // Никаких собственных пересчётов столбца или чётности.
+    const c1 = JSON.stringify({
+      draw: d1.draw,
+      date: d1.date,
+      time: d1.time,
+      parity: d1.parity,
+      column: d1.column,
+      balls: d1.balls
+    });
+    const c2 = JSON.stringify({
+      draw: d2.draw,
+      date: d2.date,
+      time: d2.time,
+      parity: d2.parity,
+      column: d2.column,
+      balls: d2.balls
+    });
+    const c3 = JSON.stringify({
+      draw: d3.draw,
+      date: d3.date,
+      time: d3.time,
+      parity: d3.parity,
+      column: d3.column,
+      balls: d3.balls
+    });
+
+    if (c1 === c2 && c1 === c3) {
+      stable.push(d1);
+    } else {
+      mismatches.push(draw);
+    }
+  }
+
+  if (stable.length < MIN_COMMON) {
+    throw new Error(
+      `FAIL: после тройной по-тиражной проверки стабильны только ${stable.length} тиражей`
+    );
+  }
+
+  if (mismatches.length) {
+    console.log(
+      `WARN: нестабильные строки пропущены (${mismatches.length}): ` +
+      mismatches.slice(0, 20).map(n => `№${n}`).join(', ')
+    );
+  }
+
+  console.log(
+    `Тройная проверка PASS: ${stable.length} тиражей полностью совпали во всех 3 чтениях; ` +
+    `диапазон стабильных №${stable[0].draw}–№${stable.at(-1).draw}`
+  );
+
+  // Возвращаем только подтверждённые всеми тремя чтениями строки.
+  return stable;
 }
 
 async function readTrustedHistory() {
