@@ -361,22 +361,39 @@ function canonical(draws) {
 }
 
 async function readArchiveThreeTimes(page) {
+  const CHECK_WINDOW = 120;
   const reads = [];
+
   for (let i = 1; i <= 3; i += 1) {
     const rawRows = await collectRows(page);
     const parsed = parseRows(rawRows);
-    if (!parsed.length) throw new Error(`FAIL: чтение ${i}: архив пуст`);
-    reads.push(parsed);
-    console.log(`Чтение ${i}: ${parsed.length} тиражей, диапазон №${parsed[0].draw}–№${parsed.at(-1).draw}`);
+    if (parsed.length < CHECK_WINDOW) {
+      throw new Error(`FAIL: чтение ${i}: получено только ${parsed.length} тиражей, нужно минимум ${CHECK_WINDOW}`);
+    }
+
+    // Столото при lazy-load может отдать 150, 180 и т.п. строк.
+    // Для честной тройной проверки сравниваем строго одинаковое окно
+    // последних CHECK_WINDOW тиражей, а не разную глубину догрузки.
+    const fixed = parsed.slice(-CHECK_WINDOW);
+    reads.push(fixed);
+
+    console.log(
+      `Чтение ${i}: загружено ${parsed.length}, проверяем одинаковые последние ${CHECK_WINDOW}: ` +
+      `№${fixed[0].draw}–№${fixed.at(-1).draw}`
+    );
+
     if (i < 3) await page.waitForTimeout(1500);
   }
 
   const c1 = canonical(reads[0]);
   const c2 = canonical(reads[1]);
   const c3 = canonical(reads[2]);
+
   if (c1 !== c2 || c1 !== c3) {
-    throw new Error('FAIL: три независимых чтения архива НЕ совпали');
+    throw new Error('FAIL: последние 120 тиражей в трёх независимых чтениях НЕ совпали');
   }
+
+  console.log('Тройная проверка PASS: последние 120 тиражей полностью совпали.');
   return reads[0];
 }
 
