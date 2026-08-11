@@ -166,9 +166,70 @@ async function login(page) {
   await page.waitForTimeout(2500);
 }
 
+
+async function expandArchive(page, targetRows = 150) {
+  let lastCount = 0;
+  let stableRounds = 0;
+
+  for (let round = 0; round < 20; round += 1) {
+    const currentCount = await page.locator('tr').evaluateAll(list =>
+      list.filter(el => /№\s*\d{4,}/.test(el.innerText || '')).length
+    );
+
+    if (currentCount >= targetRows) break;
+
+    if (currentCount === lastCount) stableRounds += 1;
+    else stableRounds = 0;
+    lastCount = currentCount;
+
+    // 1) Пробуем явные кнопки "Показать ещё / Ещё / Загрузить".
+    const more = page.getByRole('button', {
+      name: /показать\s*(ещё|еще)|загрузить\s*(ещё|еще)|^(ещё|еще)$/i
+    }).last();
+
+    if (await more.count()) {
+      try {
+        if (await more.isVisible()) {
+          await more.click({ timeout: 5000 });
+          await page.waitForTimeout(1800);
+          continue;
+        }
+      } catch (_) {}
+    }
+
+    // 2) Иногда это ссылка, а не button.
+    const moreLink = page.getByRole('link', {
+      name: /показать\s*(ещё|еще)|загрузить\s*(ещё|еще)|^(ещё|еще)$/i
+    }).last();
+
+    if (await moreLink.count()) {
+      try {
+        if (await moreLink.isVisible()) {
+          await moreLink.click({ timeout: 5000 });
+          await page.waitForTimeout(1800);
+          continue;
+        }
+      } catch (_) {}
+    }
+
+    // 3) Резерв: прокрутка вниз для lazy-load / infinite scroll.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(1800);
+
+    if (stableRounds >= 3) break;
+  }
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(400);
+}
+
 async function collectRows(page) {
   await page.goto(ARCHIVE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(3500);
+
+  // Мобильный архив сначала показывает только часть свежих тиражей.
+  // Догружаем глубже, чтобы обязательно был шанс найти старый доверенный anchor.
+  await expandArchive(page, 150);
 
   // Дата в мобильном архиве Столото часто является ОТДЕЛЬНЫМ заголовком
   // перед строками тиражей. Поэтому для каждой строки заранее находим
@@ -306,7 +367,7 @@ async function readArchiveThreeTimes(page) {
     const parsed = parseRows(rawRows);
     if (!parsed.length) throw new Error(`FAIL: чтение ${i}: архив пуст`);
     reads.push(parsed);
-    console.log(`Чтение ${i}: ${parsed.length} тиражей, последний №${parsed.at(-1).draw}`);
+    console.log(`Чтение ${i}: ${parsed.length} тиражей, диапазон №${parsed[0].draw}–№${parsed.at(-1).draw}`);
     if (i < 3) await page.waitForTimeout(1500);
   }
 
@@ -351,7 +412,13 @@ function validateAgainstAnchor(stolotoDraws, historyRaw) {
   const hMap = new Map(history.map(d => [d.draw, d]));
   const overlap = stolotoDraws.filter(d => hMap.has(d.draw));
   if (!overlap.length) {
-    throw new Error('FAIL: нет пересечения официального архива с keno-history.json');
+    const sMin = stolotoDraws.length ? stolotoDraws[0].draw : null;
+    const sMax = stolotoDraws.length ? stolotoDraws.at(-1).draw : null;
+    const hMax = history.length ? history.reduce((a, b) => a.draw > b.draw ? a : b).draw : null;
+    throw new Error(
+      `FAIL: нет пересечения официального архива с keno-history.json; ` +
+      `Столото диапазон №${sMin}–№${sMax}, локальный последний №${hMax}`
+    );
   }
 
   // Проверяем все пересекающиеся старые тиражи по данным, которые уже есть
