@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 
-const SOURCE_URL = 'https://lucky-numbers.ru/lottery/ru/keno2';
+const SOURCE_NAME = 'Официальный Столото · OAuth · тройная проверка';
 const HISTORY_FILE = 'keno-history.json';
 const OUTPUT_FILE = 'keno-auto.json';
 
@@ -615,33 +615,18 @@ function validDraw(d) {
 }
 
 async function main() {
-  const response = await fetch(SOURCE_URL, {
-    headers: {
-      'user-agent': 'Mozilla/5.0 GitHub-Actions Positron-Keno/1.0',
-      accept: 'text/html'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Lucky Numbers HTTP ${response.status}`);
+  if (!fs.existsSync(HISTORY_FILE)) {
+    throw new Error('Нет keno-history.json');
   }
 
-  const html = await response.text();
-  const fresh = parsePage(html);
-
-  if (!fresh.length) {
-    throw new Error('Не удалось распознать ни одного тиража на странице Lucky Numbers');
+  const oldHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+  if (!Array.isArray(oldHistory)) {
+    throw new Error('keno-history.json должен быть массивом');
   }
-
-  const oldHistory = fs.existsSync(HISTORY_FILE)
-    ? JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'))
-    : [];
 
   const map = new Map();
-
-  for (const d of [...oldHistory, ...fresh]) {
+  for (const d of oldHistory) {
     if (!validDraw(d)) continue;
-
     map.set(Number(d.draw), {
       draw: Number(d.draw),
       date: String(d.date),
@@ -744,7 +729,7 @@ async function main() {
     version: 3,
     modelVersion: MODEL_VERSION,
     algorithmVersion: ALGORITHM_VERSION,
-    source: SOURCE_URL,
+    source: SOURCE_NAME,
     updatedAt: new Date().toISOString(),
     latestDraw: last.draw,
     latestDate: last.date,
@@ -754,7 +739,6 @@ async function main() {
     forecasts: forecasts.slice(-2000)
   };
 
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(draws));
   fs.writeFileSync(OUTPUT_FILE, JSON.stringify(output, null, 2) + '\n');
 
   console.log(
