@@ -170,35 +170,56 @@ async function collectRows(page) {
   await page.goto(ARCHIVE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(3500);
 
-  // Основной вариант: строки таблицы архива. Сохраняем текст + подписи кнопок
-  // (20 чисел КЕНО в архиве Столото отображаются отдельными кнопками).
-  let rows = await page.locator('tr').evaluateAll(list => list.map(el => ({
-    text: el.innerText || '',
-    buttons: [...el.querySelectorAll('button')].map(b => (b.innerText || '').trim())
-  })));
+  // Дата в мобильном архиве Столото часто является ОТДЕЛЬНЫМ заголовком
+  // перед строками тиражей. Поэтому для каждой строки заранее находим
+  // ближайший предыдущий заголовок даты в DOM.
+  const rows = await page.locator('body').evaluate(() => {
+    const drawRx = /№\s*\d{4,}/;
+    const dateRx = /^(Сегодня|Вчера|\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+\d{4})?)$/i;
+    const norm = s => String(s || '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').trim();
 
-  rows = rows.filter(r => /№\s*\d{4,}/.test(r.text));
+    const all = [...document.querySelectorAll('body *')];
 
-  // Резервный DOM-поиск, если мобильная вёрстка перестанет быть <tr>.
-  if (!rows.length) {
-    rows = await page.locator('body *').evaluateAll(list => {
-      const out = [];
-      for (const el of list) {
-        const text = (el.innerText || '').trim();
-        if (!/№\s*\d{4,}/.test(text)) continue;
-        const buttons = [...el.querySelectorAll('button')].map(b => (b.innerText || '').trim());
-        if (buttons.length < 20) continue;
-        // Берём минимальный подходящий контейнер: родитель не должен содержать
-        // то же число кнопок или больше.
-        const childQualified = [...el.children].some(ch => {
-          const t = (ch.innerText || '').trim();
-          return /№\s*\d{4,}/.test(t) && ch.querySelectorAll('button').length >= 20;
-        });
-        if (!childQualified) out.push({ text, buttons });
+    function nearestDateLabel(el) {
+      let best = null;
+      for (const node of all) {
+        if (node === el || el.contains(node)) continue;
+
+        // node должен находиться ДО строки тиража.
+        const pos = node.compareDocumentPosition(el);
+        if (!(pos & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+
+        const t = norm(node.innerText || node.textContent || '');
+        if (!t || t.length > 40 || !dateRx.test(t)) continue;
+
+        // Избегаем больших контейнеров: дата должна быть компактным элементом.
+        if (node.children && node.children.length > 3) continue;
+        best = t;
       }
-      return out;
-    });
-  }
+      return best;
+    }
+
+    // Сначала пробуем реальные строки таблицы.
+    let candidates = [...document.querySelectorAll('tr')].filter(el => drawRx.test(el.innerText || ''));
+
+    // Резерв: минимальные контейнеры с номером тиража и >=20 кнопками.
+    if (!candidates.length) {
+      candidates = all.filter(el => {
+        const text = norm(el.innerText || '');
+        if (!drawRx.test(text)) return false;
+        if (el.querySelectorAll('button').length < 20) return false;
+        return ![...el.children].some(ch =>
+          drawRx.test(norm(ch.innerText || '')) && ch.querySelectorAll('button').length >= 20
+        );
+      });
+    }
+
+    return candidates.map(el => ({
+      text: el.innerText || '',
+      dateLabel: nearestDateLabel(el),
+      buttons: [...el.querySelectorAll('button')].map(b => norm(b.innerText || ''))
+    }));
+  });
 
   return rows;
 }
@@ -209,7 +230,9 @@ function parseRows(rawRows) {
 
   for (const row of rawRows) {
     const text = String(row.text || '');
-    const localDate = findDateLabel(text);
+    // Сначала используем дату, найденную в DOM перед строкой тиража.
+    // Если она всё-таки находится внутри строки — старый способ тоже остаётся.
+    const localDate = normalizeSpace(row.dateLabel || '') || findDateLabel(text);
     if (localDate) carryDateLabel = localDate;
 
     const draw = parseDraw(text);
@@ -244,7 +267,9 @@ function parseRows(rawRows) {
 
     const dateLabel = localDate || carryDateLabel;
     const date = dateLabel ? normalizeDateLabel(dateLabel) : null;
-    if (!date) throw new Error(`FAIL: тираж ${draw}: не распознана дата`);
+    if (!date) {
+      throw new Error(`FAIL: тираж ${draw}: не распознана дата; dateLabel=${JSON.stringify(dateLabel)}`);
+    }
 
     parsed.push({
       draw,
