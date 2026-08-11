@@ -1,0 +1,46 @@
+name: KENO Stoloto TEST
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keno-stoloto-source-test
+  cancel-in-progress: false
+
+jobs:
+  triple-source-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Получить репозиторий
+        uses: actions/checkout@v4
+
+      - name: Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Установить Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Тройная проверка официального архива КЕНО
+        env:
+          STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
+          STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
+        run: node stoloto-keno-test.mjs
+
+      - name: Сохранить отчёт теста
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stoloto-keno-test-report
+          path: stoloto-keno-test-report.json
+          if-no-files-found: ignore
+          retention-days: 7
