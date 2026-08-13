@@ -43,13 +43,44 @@ jobs:
         run: node keno-auto.js
 
       - name: Сохранить безопасное обновление
+        env:
+          STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
+          STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
         run: |
-          if git diff --quiet -- keno-history.json keno-auto.json; then
-            echo "Изменений нет"
-            exit 0
-          fi
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add keno-history.json keno-auto.json
-          git commit -m "Столото · автообновление КЕНО"
-          git push
+
+          for attempt in 1 2 3; do
+            echo "=== SAVE ATTEMPT $attempt/3 ==="
+            git fetch origin main
+
+            if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+              echo "main изменился после checkout — пересчитываю на свежей базе"
+              git reset --hard origin/main
+              node stoloto-keno-update.mjs
+              node keno-auto.js
+            fi
+
+            if git diff --quiet -- keno-history.json keno-auto.json; then
+              echo "Изменений нет"
+              exit 0
+            fi
+
+            git add keno-history.json keno-auto.json
+            git commit -m "Столото · автообновление КЕНО"
+
+            if git push origin HEAD:main; then
+              echo "Обновление сохранено"
+              exit 0
+            fi
+
+            echo "main снова изменился во время push — повторяю безопасно"
+            git fetch origin main
+            git reset --hard origin/main
+            node stoloto-keno-update.mjs
+            node keno-auto.js
+          done
+
+          echo "Не удалось сохранить после 3 безопасных попыток"
+          exit 1
