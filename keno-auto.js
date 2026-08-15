@@ -17,10 +17,14 @@ function counts(draw) {
   return out;
 }
 
-// Победитель полностью совпадает с экранным analysis():
-// максимум чисел в столбце, при равенстве — кто раньше достиг максимума
-// в порядке выпадения.
+// Для новых тиражей Столото используем официальный «Столбец N».
+// Старый расчёт оставлен только для исторических строк без поля column.
 function winner(draw) {
+  const official = Number(draw?.column);
+  if (Number.isInteger(official) && official >= 1 && official <= 10) {
+    return official;
+  }
+
   const final = counts(draw);
   const max = Math.max(...final.slice(1));
   const running = Array(11).fill(0);
@@ -406,13 +410,14 @@ function rankColumns(draws, winnerCache, drawCounts, pred, endIndex, typeKey) {
 }
 
 function drawStamp(d) {
-  const dm = String(d?.date || '').match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/);
+  const dm = String(d?.date || '').match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4}|\d{2})(?!\d)/);
   const tm = String(d?.time || '').match(/(\d{1,2}):(\d{2})/);
 
   if (!dm || !tm) return null;
 
+  const year = dm[3].length === 2 ? 2000 + Number(dm[3]) : Number(dm[3]);
   return new Date(
-    Number(dm[3]),
+    year,
     Number(dm[2]) - 1,
     Number(dm[1]),
     Number(tm[1]),
@@ -627,11 +632,15 @@ async function main() {
   const map = new Map();
   for (const d of oldHistory) {
     if (!validDraw(d)) continue;
+    const officialColumn = Number(d?.column);
     map.set(Number(d.draw), {
       draw: Number(d.draw),
       date: String(d.date),
       time: String(d.time),
-      balls: d.balls.map(Number)
+      balls: d.balls.map(Number),
+      column: Number.isInteger(officialColumn) && officialColumn >= 1 && officialColumn <= 10
+        ? officialColumn
+        : null
     });
   }
 

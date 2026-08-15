@@ -19,7 +19,10 @@
     const drawCounts = new Array(list.length);
     for (let i = 0; i < list.length; i += 1) {
       drawCounts[i] = counts(list[i]);
-      winnerCache[i] = Number(safeAnalysis(list[i]).winner) || 1;
+      const official = Number(list[i]?.column);
+      winnerCache[i] = Number.isInteger(official) && official >= 1 && official <= 10
+        ? official
+        : (Number(safeAnalysis(list[i]).winner) || 1);
     }
     for (let i = 1; i < list.length; i += 1) {
       stateCache[i] = Math.min(4, drawCounts[i - 1][winnerCache[i]] || 0);
@@ -702,10 +705,11 @@ function recentWinnerRate(col, endIndex, window) {
   }
 
   function drawStamp(d) {
-    const dm = String(d?.date || '').match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/);
+    const dm = String(d?.date || '').match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4}|\d{2})(?!\d)/);
     const tm = String(d?.time || '').match(/(\d{1,2}):(\d{2})/);
     if (!dm || !tm) return null;
-    return new Date(Number(dm[3]), Number(dm[2]) - 1, Number(dm[1]), Number(tm[1]), Number(tm[2])).getTime();
+    const year = dm[3].length === 2 ? 2000 + Number(dm[3]) : Number(dm[3]);
+    return new Date(year, Number(dm[2]) - 1, Number(dm[1]), Number(tm[1]), Number(tm[2])).getTime();
   }
 
   function chainBlocksHtml(model) {
