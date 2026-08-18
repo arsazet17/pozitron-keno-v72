@@ -1,42 +1,65 @@
-name: Keno Auto
+name: Keno Auto · Stoloto MAIN
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "2-59/5 * * * *"
 
 permissions:
   contents: write
 
 concurrency:
-  group: keno-auto
+  group: keno-stoloto-auto
   cancel-in-progress: false
 
 jobs:
-  update-forecast:
+  update:
     runs-on: ubuntu-latest
+    timeout-minutes: 6
     steps:
+      - name: Кто запустил workflow
+        shell: bash
+        run: |
+          echo "=== TRIGGER DIAGNOSTIC ==="
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "GITHUB_ACTOR=$GITHUB_ACTOR"
+          echo "GITHUB_TRIGGERING_ACTOR=$GITHUB_TRIGGERING_ACTOR"
+          echo "GITHUB_RUN_ID=$GITHUB_RUN_ID"
+          echo "GITHUB_RUN_NUMBER=$GITHUB_RUN_NUMBER"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "=========================="
+
       - name: Получить файлы репозитория
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Установить Node.js
+      - name: Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Получить тираж и рассчитать прогноз
+      - name: Установить Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Столото · 3 проверки · обновить историю
+        env:
+          STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
+          STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
+        run: node stoloto-keno-update.mjs
+
+      - name: Рассчитать Спринт / Марафон
         run: node keno-auto.js
 
-      - name: Сохранить обновление
+      - name: Сохранить безопасное обновление
         run: |
           if git diff --quiet -- keno-history.json keno-auto.json; then
-            echo "Нового тиража или изменений нет"
+            echo "Изменений нет"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add keno-history.json keno-auto.json
-          git commit -m "Автопрогноз КЕНО"
+          git commit -m "Столото · автообновление КЕНО"
           git push
