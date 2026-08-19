@@ -1,9 +1,9 @@
 name: Keno Auto · Stoloto RESERVE
 
+# Резерв больше не запускается по собственному расписанию.
+# Автоматический источник запуска должен быть только один, как в KENO 4M.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "3,18,33,48 * * * *"
 
 permissions:
   contents: write
@@ -13,74 +13,66 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  update:
+  reserve:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
+
     steps:
-      - name: Получить файлы репозитория
+      - name: Получить самый свежий main
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
-      - name: Node.js 20
+      - name: Синхронизировать рабочую копию
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+
+      - name: Кэш Chromium Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-1.54.2-chromium
 
       - name: Установить Playwright
         run: |
           npm init -y
-          npm install playwright
+          npm install --no-save playwright@1.54.2
           npx playwright install --with-deps chromium
 
-      - name: Столото · 3 проверки · обновить историю
+      - name: Столото OAuth · последние 10 · 3 проверки
         env:
           STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
           STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
         run: node stoloto-keno-update.mjs
 
-      - name: Рассчитать Спринт / Марафон
-        run: node keno-auto.js
-
-      - name: Сохранить безопасное обновление
-        env:
-          STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
-          STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
+      - name: Пересчитать Спринт / Марафон при новом тираже
         run: |
-          set -e
+          if git diff --quiet -- keno-history.json; then
+            echo "Нового тиража нет"
+            exit 0
+          fi
+          node keno-auto.js
+
+      - name: Сохранить
+        run: |
+          if git diff --quiet -- keno-history.json keno-auto.json; then
+            echo "Изменений нет"
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          for attempt in 1 2 3; do
-            echo "=== SAVE ATTEMPT $attempt/3 ==="
-            git fetch origin main
+          git add keno-history.json keno-auto.json
+          git commit -m "KENO v7.2 · reserve tail10"
 
-            if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-              echo "main изменился после checkout — пересчитываю на свежей базе"
-              git reset --hard origin/main
-              node stoloto-keno-update.mjs
-              node keno-auto.js
-            fi
-
-            if git diff --quiet -- keno-history.json keno-auto.json; then
-              echo "Изменений нет"
-              exit 0
-            fi
-
-            git add keno-history.json keno-auto.json
-            git commit -m "Столото · автообновление КЕНО"
-
-            if git push origin HEAD:main; then
-              echo "Обновление сохранено"
-              exit 0
-            fi
-
-            echo "main снова изменился во время push — повторяю безопасно"
-            git fetch origin main
-            git reset --hard origin/main
-            node stoloto-keno-update.mjs
-            node keno-auto.js
-          done
-
-          echo "Не удалось сохранить после 3 безопасных попыток"
-          exit 1
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

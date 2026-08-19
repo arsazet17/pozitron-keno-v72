@@ -13,44 +13,58 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 5
+
     steps:
       - name: Кто запустил workflow
-        shell: bash
         run: |
-          echo "=== TRIGGER DIAGNOSTIC ==="
-          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
-          echo "GITHUB_ACTOR=$GITHUB_ACTOR"
-          echo "GITHUB_TRIGGERING_ACTOR=$GITHUB_TRIGGERING_ACTOR"
-          echo "GITHUB_RUN_ID=$GITHUB_RUN_ID"
-          echo "GITHUB_RUN_NUMBER=$GITHUB_RUN_NUMBER"
-          echo "GITHUB_REF=$GITHUB_REF"
-          echo "=========================="
+          echo "EVENT=$GITHUB_EVENT_NAME"
+          echo "ACTOR=$GITHUB_ACTOR"
+          echo "RUN=$GITHUB_RUN_ID"
 
-      - name: Получить файлы репозитория
+      - name: Получить самый свежий main
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
-      - name: Node.js 20
+      - name: Синхронизировать рабочую копию с main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+          echo "WORKING_SHA=$(git rev-parse HEAD)"
+
+      - name: Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+
+      - name: Кэш Chromium Playwright
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-1.54.2-chromium
 
       - name: Установить Playwright
         run: |
           npm init -y
-          npm install playwright
+          npm install --no-save playwright@1.54.2
           npx playwright install --with-deps chromium
 
-      - name: Столото · 3 проверки · обновить историю
+      - name: Столото OAuth · последние 10 · 3 проверки
         env:
           STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
           STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
         run: node stoloto-keno-update.mjs
 
-      - name: Рассчитать Спринт / Марафон
-        run: node keno-auto.js
+      - name: Пересчитать Спринт / Марафон при новом тираже
+        run: |
+          if git diff --quiet -- keno-history.json; then
+            echo "Нового тиража нет — прогнозный JSON не пересчитываю"
+            exit 0
+          fi
+          node keno-auto.js
 
       - name: Сохранить безопасное обновление
         run: |
@@ -58,8 +72,13 @@ jobs:
             echo "Изменений нет"
             exit 0
           fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add keno-history.json keno-auto.json
-          git commit -m "Столото · автообновление КЕНО"
-          git push
+          git commit -m "KENO v7.2 · Stoloto tail10 auto"
+
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
