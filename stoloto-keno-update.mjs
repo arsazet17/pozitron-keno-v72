@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const LOGIN_URL = 'https://oauth.stoloto.ru/login';
 const ARCHIVE_URL = 'https://m.stoloto.ru/keno2/archive/';
 const HISTORY_FILE = 'keno-history.json';
+const TAIL_SIZE = 10;
 
 const EMAIL = process.env.STOLOTO_EMAIL || '';
 const PASSWORD = process.env.STOLOTO_PASSWORD || '';
@@ -20,27 +21,27 @@ const MONTHS = {
 };
 
 const pad2 = n => String(n).padStart(2, '0');
-
-function normalizeSpace(s) {
-  return String(s ?? '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').trim();
-}
+const norm = s => String(s ?? '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').trim();
 
 function moscowTodayParts() {
   const f = new Intl.DateTimeFormat('ru-RU', {
-    timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit'
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
   });
-  const parts = Object.fromEntries(f.formatToParts(new Date()).map(x => [x.type, x.value]));
-  return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day) };
+  const p = Object.fromEntries(f.formatToParts(new Date()).map(x => [x.type, x.value]));
+  return { y: Number(p.year), m: Number(p.month), d: Number(p.day) };
 }
 
-function shiftDate({y,m,d}, deltaDays) {
+function shiftDate({ y, m, d }, delta) {
   const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  dt.setUTCDate(dt.getUTCDate() + delta);
   return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
 }
 
 function normalizeDateLabel(label) {
-  const raw = normalizeSpace(label).toLowerCase();
+  const raw = norm(label).toLowerCase();
   const today = moscowTodayParts();
   let p = null;
 
@@ -57,38 +58,20 @@ function normalizeDateLabel(label) {
       if (m && MONTHS[m[2]]) {
         let y = m[3] ? Number(m[3]) : today.y;
         p = { d: Number(m[1]), m: MONTHS[m[2]], y };
-        // На границе года декабрь в январе должен относиться к прошлому году.
         if (!m[3] && p.m > today.m + 6) p.y -= 1;
       }
     }
   }
 
-  if (!p) return null;
-  return `${pad2(p.d)}.${pad2(p.m)}.${String(p.y).slice(-2)}`;
+  return p ? `${pad2(p.d)}.${pad2(p.m)}.${String(p.y).slice(-2)}` : null;
 }
 
-function normalizeTime(t) {
-  const m = String(t ?? '').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+function normalizeTime(v) {
+  const m = String(v ?? '').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (!m) return null;
   const hh = Number(m[1]), mm = Number(m[2]), ss = Number(m[3] || 0);
   if (hh > 23 || mm > 59 || ss > 59) return null;
-  return {
-    full: `${pad2(hh)}:${pad2(mm)}:${pad2(ss)}`,
-    short: `${pad2(hh)}:${pad2(mm)}`
-  };
-}
-
-function parseParity(text) {
-  const s = normalizeSpace(text).toLowerCase();
-  if (s.includes('больше нечётных') || s.includes('больше нечетных')) return 'Больше нечётных';
-  if (s.includes('больше чётных') || s.includes('больше четных')) return 'Больше чётных';
-  if (s.includes('поровну')) return 'Поровну';
-  return null;
-}
-
-function parseColumn(text) {
-  const m = normalizeSpace(text).match(/столбец\s*([1-9]|10)\b/i);
-  return m ? Number(m[1]) : null;
+  return { short: `${pad2(hh)}:${pad2(mm)}`, full: `${pad2(hh)}:${pad2(mm)}:${pad2(ss)}` };
 }
 
 function parseDraw(text) {
@@ -101,18 +84,29 @@ function parseTime(text) {
   return m ? normalizeTime(m[0]) : null;
 }
 
+function parseParity(text) {
+  const s = norm(text).toLowerCase();
+  if (s.includes('больше нечётных') || s.includes('больше нечетных')) return 'Больше нечётных';
+  if (s.includes('больше чётных') || s.includes('больше четных')) return 'Больше чётных';
+  if (s.includes('поровну')) return 'Поровну';
+  return null;
+}
+
+function parseColumn(text) {
+  const m = norm(text).match(/столбец\s*([1-9]|10)\b/i);
+  return m ? Number(m[1]) : null;
+}
+
 function findDateLabel(text) {
   const s = String(text);
-  const direct = s.match(/(?:^|\n)\s*(Сегодня|Вчера)\s*(?:\n|$)/i);
-  if (direct) return normalizeSpace(direct[1]);
+  let m = s.match(/(?:^|\n)\s*(Сегодня|Вчера)\s*(?:\n|$)/i);
+  if (m) return norm(m[1]);
 
-  const numeric = s.match(/(?:^|\n)\s*(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4})\s*(?:\n|$)/);
-  if (numeric) return normalizeSpace(numeric[1]);
+  m = s.match(/(?:^|\n)\s*(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4})\s*(?:\n|$)/);
+  if (m) return norm(m[1]);
 
-  const words = s.match(/(?:^|\n)\s*(\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+\d{4})?)\s*(?:\n|$)/i);
-  if (words) return normalizeSpace(words[1]);
-
-  return null;
+  m = s.match(/(?:^|\n)\s*(\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+\d{4})?)\s*(?:\n|$)/i);
+  return m ? norm(m[1]) : null;
 }
 
 async function login(page) {
@@ -131,20 +125,22 @@ async function login(page) {
     'input[autocomplete="current-password"]'
   ];
 
-  let login = null;
+  let loginField = null;
+  let passField = null;
+
   for (const sel of loginSelectors) {
     const loc = page.locator(sel).first();
-    if (await loc.count()) { login = loc; break; }
+    if (await loc.count()) { loginField = loc; break; }
   }
-  let pass = null;
   for (const sel of passSelectors) {
     const loc = page.locator(sel).first();
-    if (await loc.count()) { pass = loc; break; }
+    if (await loc.count()) { passField = loc; break; }
   }
-  if (!login || !pass) throw new Error('FAIL: не найдены поля OAuth Столото');
 
-  await login.fill(EMAIL);
-  await pass.fill(PASSWORD);
+  if (!loginField || !passField) throw new Error('FAIL: не найдены поля OAuth Столото');
+
+  await loginField.fill(EMAIL);
+  await passField.fill(PASSWORD);
 
   const buttons = [
     page.getByRole('button', { name: /войти/i }).first(),
@@ -163,15 +159,14 @@ async function login(page) {
   if (!clicked) throw new Error('FAIL: не найдена кнопка «Войти»');
 
   await page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => {});
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(1800);
 }
 
-
-async function expandArchive(page, targetRows = 150) {
-  let lastCount = 0;
+async function expandArchive(page, targetRows = TAIL_SIZE) {
+  let lastCount = -1;
   let stableRounds = 0;
 
-  for (let round = 0; round < 20; round += 1) {
+  for (let round = 0; round < 6; round += 1) {
     const currentCount = await page.locator('tr').evaluateAll(list =>
       list.filter(el => /№\s*\d{4,}/.test(el.innerText || '')).length
     );
@@ -182,95 +177,73 @@ async function expandArchive(page, targetRows = 150) {
     else stableRounds = 0;
     lastCount = currentCount;
 
-    // 1) Пробуем явные кнопки "Показать ещё / Ещё / Загрузить".
     const more = page.getByRole('button', {
       name: /показать\s*(ещё|еще)|загрузить\s*(ещё|еще)|^(ещё|еще)$/i
     }).last();
 
-    if (await more.count()) {
-      try {
-        if (await more.isVisible()) {
-          await more.click({ timeout: 5000 });
-          await page.waitForTimeout(1800);
-          continue;
-        }
-      } catch (_) {}
-    }
+    try {
+      if (await more.count() && await more.isVisible()) {
+        await more.click({ timeout: 3500 });
+        await page.waitForTimeout(700);
+        continue;
+      }
+    } catch {}
 
-    // 2) Иногда это ссылка, а не button.
     const moreLink = page.getByRole('link', {
       name: /показать\s*(ещё|еще)|загрузить\s*(ещё|еще)|^(ещё|еще)$/i
     }).last();
 
-    if (await moreLink.count()) {
-      try {
-        if (await moreLink.isVisible()) {
-          await moreLink.click({ timeout: 5000 });
-          await page.waitForTimeout(1800);
-          continue;
-        }
-      } catch (_) {}
-    }
+    try {
+      if (await moreLink.count() && await moreLink.isVisible()) {
+        await moreLink.click({ timeout: 3500 });
+        await page.waitForTimeout(700);
+        continue;
+      }
+    } catch {}
 
-    // 3) Резерв: прокрутка вниз для lazy-load / infinite scroll.
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(1800);
+    await page.waitForTimeout(700);
 
-    if (stableRounds >= 3) break;
+    if (stableRounds >= 2) break;
   }
 
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(400);
 }
 
 async function collectRows(page) {
   await page.goto(ARCHIVE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(2200);
+  await expandArchive(page, TAIL_SIZE);
 
-  // Мобильный архив сначала показывает только часть свежих тиражей.
-  // Догружаем глубже, чтобы обязательно был шанс найти старый доверенный anchor.
-  await expandArchive(page, 150);
-
-  // Дата в мобильном архиве Столото часто является ОТДЕЛЬНЫМ заголовком
-  // перед строками тиражей. Поэтому для каждой строки заранее находим
-  // ближайший предыдущий заголовок даты в DOM.
-  const rows = await page.locator('body').evaluate(() => {
+  return await page.locator('body').evaluate(() => {
     const drawRx = /№\s*\d{4,}/;
     const dateRx = /^(Сегодня|Вчера|\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+\d{4})?)$/i;
-    const norm = s => String(s || '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').trim();
-
+    const n = s => String(s || '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').trim();
     const all = [...document.querySelectorAll('body *')];
 
     function nearestDateLabel(el) {
       let best = null;
       for (const node of all) {
         if (node === el || el.contains(node)) continue;
-
-        // node должен находиться ДО строки тиража.
         const pos = node.compareDocumentPosition(el);
         if (!(pos & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
 
-        const t = norm(node.innerText || node.textContent || '');
+        const t = n(node.innerText || node.textContent || '');
         if (!t || t.length > 40 || !dateRx.test(t)) continue;
-
-        // Избегаем больших контейнеров: дата должна быть компактным элементом.
         if (node.children && node.children.length > 3) continue;
         best = t;
       }
       return best;
     }
 
-    // Сначала пробуем реальные строки таблицы.
     let candidates = [...document.querySelectorAll('tr')].filter(el => drawRx.test(el.innerText || ''));
 
-    // Резерв: минимальные контейнеры с номером тиража и >=20 кнопками.
     if (!candidates.length) {
       candidates = all.filter(el => {
-        const text = norm(el.innerText || '');
-        if (!drawRx.test(text)) return false;
-        if (el.querySelectorAll('button').length < 20) return false;
+        const text = n(el.innerText || '');
+        if (!drawRx.test(text) || el.querySelectorAll('button').length < 20) return false;
         return ![...el.children].some(ch =>
-          drawRx.test(norm(ch.innerText || '')) && ch.querySelectorAll('button').length >= 20
+          drawRx.test(n(ch.innerText || '')) && ch.querySelectorAll('button').length >= 20
         );
       });
     }
@@ -278,23 +251,19 @@ async function collectRows(page) {
     return candidates.map(el => ({
       text: el.innerText || '',
       dateLabel: nearestDateLabel(el),
-      buttons: [...el.querySelectorAll('button')].map(b => norm(b.innerText || ''))
+      buttons: [...el.querySelectorAll('button')].map(b => n(b.innerText || ''))
     }));
   });
-
-  return rows;
 }
 
 function parseRows(rawRows) {
-  const parsed = [];
-  let carryDateLabel = null;
+  const out = [];
+  let carryDate = null;
 
   for (const row of rawRows) {
     const text = String(row.text || '');
-    // Сначала используем дату, найденную в DOM перед строкой тиража.
-    // Если она всё-таки находится внутри строки — старый способ тоже остаётся.
-    const localDate = normalizeSpace(row.dateLabel || '') || findDateLabel(text);
-    if (localDate) carryDateLabel = localDate;
+    const localDate = norm(row.dateLabel || '') || findDateLabel(text);
+    if (localDate) carryDate = localDate;
 
     const draw = parseDraw(text);
     if (!draw) continue;
@@ -302,313 +271,173 @@ function parseRows(rawRows) {
     const time = parseTime(text);
     const parity = parseParity(text);
     const column = parseColumn(text);
+    const date = normalizeDateLabel(localDate || carryDate);
 
-    // Не пересчитываем ни столбец, ни чётность.
-    // Берём официальные метки Столото как есть.
-    if (!parity) throw new Error(`FAIL: тираж ${draw}: Столото не отдал метку чёт/нечёт`);
-    if (!column) throw new Error(`FAIL: тираж ${draw}: Столото не отдал «Столбец N»`);
-    if (!time) throw new Error(`FAIL: тираж ${draw}: не найдено корректное время`);
+    if (!time) throw new Error(`FAIL: №${draw}: не найдено корректное время`);
+    if (!date) throw new Error(`FAIL: №${draw}: не распознана дата`);
+    if (!parity) throw new Error(`FAIL: №${draw}: Столото не отдал метку чёт/нечёт`);
+    if (!column) throw new Error(`FAIL: №${draw}: Столото не отдал «Столбец N»`);
 
-    // Берём числа только из кнопок результата, чтобы не захватить 9 цифр «Тур 1».
-    const buttonNumbers = (row.buttons || [])
-      .map(x => Number(normalizeSpace(x)))
+    let balls = (row.buttons || [])
+      .map(x => Number(norm(x)))
       .filter(n => Number.isInteger(n) && n >= 1 && n <= 80);
 
-    let balls = buttonNumbers;
-    // Если в контейнере есть посторонние кнопки, 20 шаров обычно последние 20
-    // числовых кнопок строки архива.
     if (balls.length > 20) balls = balls.slice(-20);
+    if (balls.length !== 20) throw new Error(`FAIL: №${draw}: найдено ${balls.length} чисел вместо 20`);
+    if (new Set(balls).size !== 20) throw new Error(`FAIL: №${draw}: числа должны быть без повторов`);
 
-    if (balls.length !== 20) {
-      throw new Error(`FAIL: тираж ${draw}: ожидалось 20 чисел, найдено ${balls.length}`);
-    }
-    if (new Set(balls).size !== 20) {
-      throw new Error(`FAIL: тираж ${draw}: 20 чисел должны быть без повторов`);
-    }
-
-    const dateLabel = localDate || carryDateLabel;
-    const date = dateLabel ? normalizeDateLabel(dateLabel) : null;
-    if (!date) {
-      throw new Error(`FAIL: тираж ${draw}: не распознана дата; dateLabel=${JSON.stringify(dateLabel)}`);
-    }
-
-    parsed.push({
+    out.push({
       draw,
       date,
       time: time.short,
-      timeFull: time.full,
       parity,
       column,
       balls
     });
   }
 
-  const map = new Map();
-  for (const d of parsed) map.set(d.draw, d);
-  return [...map.values()].sort((a, b) => a.draw - b.draw);
+  return [...new Map(out.map(d => [d.draw, d])).values()]
+    .sort((a, b) => a.draw - b.draw)
+    .slice(-TAIL_SIZE);
 }
 
-function canonical(draws) {
-  return JSON.stringify(draws.map(d => ({
+function core(d) {
+  return JSON.stringify({
     draw: d.draw,
     date: d.date,
     time: d.time,
-    timeFull: d.timeFull,
     parity: d.parity,
     column: d.column,
     balls: d.balls
-  })));
+  });
 }
 
-async function readArchiveThreeTimes(page) {
-  const MIN_COMMON = 60;
+async function readTailThreeTimes(page) {
   const reads = [];
 
   for (let i = 1; i <= 3; i += 1) {
-    const rawRows = await collectRows(page);
-    const parsed = parseRows(rawRows);
-    if (parsed.length < MIN_COMMON) {
-      throw new Error(`FAIL: чтение ${i}: получено только ${parsed.length} тиражей`);
+    const parsed = parseRows(await collectRows(page));
+
+    if (parsed.length < TAIL_SIZE) {
+      throw new Error(`FAIL: чтение ${i}: получено ${parsed.length} из ${TAIL_SIZE} последних тиражей`);
     }
 
     reads.push(parsed);
-    console.log(
-      `Чтение ${i}: ${parsed.length} тиражей, диапазон №${parsed[0].draw}–№${parsed.at(-1).draw}`
-    );
+    console.log(`Чтение ${i}: последние ${TAIL_SIZE}, №${parsed[0].draw}–№${parsed.at(-1).draw}`);
 
-    if (i < 3) await page.waitForTimeout(1500);
+    if (i < 3) await page.waitForTimeout(900);
   }
 
-  const maps = reads.map(arr => new Map(arr.map(d => [d.draw, d])));
+  const first = reads[0].map(core);
 
-  // Берём только номера тиражей, которые присутствуют во ВСЕХ трёх чтениях.
-  const commonDraws = [...maps[0].keys()]
-    .filter(draw => maps[1].has(draw) && maps[2].has(draw))
-    .sort((a, b) => a - b);
-
-  if (commonDraws.length < MIN_COMMON) {
-    throw new Error(
-      `FAIL: общих тиражей во всех трёх чтениях только ${commonDraws.length}, нужно минимум ${MIN_COMMON}`
-    );
-  }
-
-  const stable = [];
-  const mismatches = [];
-
-  for (const draw of commonDraws) {
-    const d1 = maps[0].get(draw);
-    const d2 = maps[1].get(draw);
-    const d3 = maps[2].get(draw);
-
-    // Сравниваем только фактические поля тиража.
-    // Никаких собственных пересчётов столбца или чётности.
-    const c1 = JSON.stringify({
-      draw: d1.draw,
-      date: d1.date,
-      time: d1.time,
-      parity: d1.parity,
-      column: d1.column,
-      balls: d1.balls
-    });
-    const c2 = JSON.stringify({
-      draw: d2.draw,
-      date: d2.date,
-      time: d2.time,
-      parity: d2.parity,
-      column: d2.column,
-      balls: d2.balls
-    });
-    const c3 = JSON.stringify({
-      draw: d3.draw,
-      date: d3.date,
-      time: d3.time,
-      parity: d3.parity,
-      column: d3.column,
-      balls: d3.balls
-    });
-
-    if (c1 === c2 && c1 === c3) {
-      stable.push(d1);
-    } else {
-      mismatches.push(draw);
+  for (let i = 1; i < reads.length; i += 1) {
+    const current = reads[i].map(core);
+    if (current.length !== first.length || current.some((x, k) => x !== first[k])) {
+      throw new Error(
+        'SAFE RETRY: последние 10 изменились между тремя чтениями; следующий автоматический запуск проверит их снова'
+      );
     }
   }
 
-  if (stable.length < MIN_COMMON) {
-    throw new Error(
-      `FAIL: после тройной по-тиражной проверки стабильны только ${stable.length} тиражей`
-    );
-  }
-
-  if (mismatches.length) {
-    console.log(
-      `WARN: нестабильные строки пропущены (${mismatches.length}): ` +
-      mismatches.slice(0, 20).map(n => `№${n}`).join(', ')
-    );
-  }
-
-  console.log(
-    `Тройная проверка PASS: ${stable.length} тиражей полностью совпали во всех 3 чтениях; ` +
-    `диапазон стабильных №${stable[0].draw}–№${stable.at(-1).draw}`
-  );
-
-  // Возвращаем только подтверждённые всеми тремя чтениями строки.
-  return stable;
+  console.log(`Тройная проверка PASS: ${TAIL_SIZE}/${TAIL_SIZE}`);
+  return reads[0];
 }
 
 async function readTrustedHistory() {
-  try {
-    const raw = await fs.readFile(HISTORY_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed;
-    if (Array.isArray(parsed?.draws)) return parsed.draws;
-    return [];
-  } catch {
-    return [];
+  const raw = await fs.readFile(HISTORY_FILE, 'utf8');
+  const parsed = JSON.parse(raw);
+  const rows = Array.isArray(parsed) ? parsed : parsed?.draws;
+
+  if (!Array.isArray(rows) || rows.length < 60) {
+    throw new Error(`FAIL: keno-history.json не является доверенным полным архивом (${Array.isArray(rows) ? rows.length : 0})`);
   }
+
+  return rows;
 }
 
 function normalizeHistoryDraw(d) {
   return {
     draw: Number(d?.draw ?? d?.number ?? d?.id),
-    date: normalizeSpace(d?.date),
-    time: normalizeTime(d?.time)?.short || normalizeSpace(d?.time),
+    date: norm(d?.date),
+    time: normalizeTime(d?.time)?.short || norm(d?.time),
     balls: Array.isArray(d?.balls) ? d.balls.map(Number) :
            Array.isArray(d?.numbers) ? d.numbers.map(Number) : []
   };
 }
 
-function validateAgainstAnchor(stolotoDraws, historyRaw) {
-  const history = historyRaw.map(normalizeHistoryDraw).filter(d => Number.isInteger(d.draw));
-  if (!history.length) {
-    console.log('WARN: локальная история не прочитана — anchor не проверен');
-    return;
-  }
-
-  const hMap = new Map(history.map(d => [d.draw, d]));
-  const overlap = stolotoDraws.filter(d => hMap.has(d.draw));
-  if (!overlap.length) {
-    const sMin = stolotoDraws.length ? stolotoDraws[0].draw : null;
-    const sMax = stolotoDraws.length ? stolotoDraws.at(-1).draw : null;
-    const hMax = history.length ? history.reduce((a, b) => a.draw > b.draw ? a : b).draw : null;
-    throw new Error(
-      `FAIL: нет пересечения официального архива с keno-history.json; ` +
-      `Столото диапазон №${sMin}–№${sMax}, локальный последний №${hMax}`
-    );
-  }
-
-  // Проверяем все пересекающиеся старые тиражи по данным, которые уже есть
-  // в текущей истории: номер, дата, время, 20 чисел.
-  for (const s of overlap) {
-    const h = hMap.get(s.draw);
-    if (h.date && s.date && h.date !== s.date) {
-      throw new Error(`FAIL: anchor №${s.draw}: дата отличается (${h.date} != ${s.date})`);
-    }
-    if (h.time && s.time && h.time !== s.time) {
-      throw new Error(`FAIL: anchor №${s.draw}: время отличается (${h.time} != ${s.time})`);
-    }
-    if (h.balls.length === 20 && JSON.stringify(h.balls) !== JSON.stringify(s.balls)) {
-      throw new Error(`FAIL: anchor №${s.draw}: 20 чисел отличаются`);
-    }
-  }
-
-  const lastHistory = history.reduce((a, b) => a.draw > b.draw ? a : b);
-  const lastOverlap = overlap.at(-1);
-  console.log(`Anchor PASS: пересечений ${overlap.length}, крайний общий №${lastOverlap.draw}`);
-  console.log(`Последний доверенный локальный тираж: №${lastHistory.draw}`);
-}
-
-
-function trustedHistoryStrict(historyRaw) {
-  if (!Array.isArray(historyRaw) || historyRaw.length < 60) {
-    throw new Error(`FAIL: keno-history.json должен содержать доверенный архив, сейчас ${Array.isArray(historyRaw) ? historyRaw.length : 0}`);
-  }
-
-  const rows = historyRaw
-    .map(d => ({
-      original: d,
-      ...normalizeHistoryDraw(d)
-    }))
-    .filter(d =>
-      Number.isInteger(d.draw) &&
-      /^\d{2}\.\d{2}\.\d{2,4}$/.test(d.date) &&
-      /^\d{2}:\d{2}$/.test(d.time) &&
-      d.balls.length === 20 &&
-      d.balls.every(n => Number.isInteger(n) && n >= 1 && n <= 80)
-    )
-    .sort((a, b) => a.draw - b.draw);
-
-  if (rows.length !== historyRaw.length) {
-    throw new Error(`FAIL: в доверенном keno-history.json есть некорректные строки (${rows.length}/${historyRaw.length})`);
-  }
-  return rows;
-}
-
 function scheduleMinutesFromHistory(history) {
   const set = new Set();
   for (const d of history.slice(-5000)) {
-    const m = String(d.time).match(/^\d{2}:(\d{2})$/);
+    const m = String(d.time ?? '').match(/^\d{2}:(\d{2})$/);
     if (m) set.add(m[1]);
   }
   return set;
 }
 
-function validateProduction(stolotoDraws, historyRaw) {
-  const history = trustedHistoryStrict(historyRaw);
-  const hMap = new Map(history.map(d => [d.draw, d]));
-  const overlap = stolotoDraws.filter(d => hMap.has(d.draw));
+function validateAndFindFresh(stoloto, historyRaw) {
+  const history = historyRaw
+    .map(d => ({ original: d, ...normalizeHistoryDraw(d) }))
+    .filter(d =>
+      Number.isInteger(d.draw) &&
+      /^\d{2}\.\d{2}\.\d{2,4}$/.test(d.date) &&
+      /^\d{2}:\d{2}$/.test(d.time) &&
+      d.balls.length === 20
+    )
+    .sort((a, b) => a.draw - b.draw);
 
-  if (!overlap.length) {
+  if (history.length !== historyRaw.length) {
+    throw new Error(`FAIL: в keno-history.json есть некорректные строки (${history.length}/${historyRaw.length})`);
+  }
+
+  const last = history.at(-1);
+  const oldest = stoloto[0];
+  const newest = stoloto.at(-1);
+
+  if (!oldest || !newest) throw new Error('FAIL: последние 10 Столото пусты');
+
+  // Последние 10 официальных номеров должны идти подряд.
+  for (let i = 1; i < stoloto.length; i += 1) {
+    if (stoloto[i].draw !== stoloto[i - 1].draw + 1) {
+      throw new Error(`FAIL: официальный tail10 имеет разрыв №${stoloto[i - 1].draw} → №${stoloto[i].draw}`);
+    }
+  }
+
+  const officialMap = new Map(stoloto.map(d => [d.draw, d]));
+  const anchor = officialMap.get(last.draw);
+
+  if (anchor) {
+    if (anchor.date !== last.date) throw new Error(`FAIL: anchor №${last.draw}: дата отличается`);
+    if (anchor.time !== last.time) throw new Error(`FAIL: anchor №${last.draw}: время отличается`);
+    if (JSON.stringify(anchor.balls) !== JSON.stringify(last.balls)) {
+      throw new Error(`FAIL: anchor №${last.draw}: 20 чисел отличаются`);
+    }
+  } else if (oldest.draw !== last.draw + 1) {
     throw new Error(
-      `FAIL: нет anchor; Столото №${stolotoDraws[0]?.draw}–№${stolotoDraws.at(-1)?.draw}, ` +
-      `локальный последний №${history.at(-1).draw}`
+      `FAIL SAFE: локальная база слишком отстала для tail10. ` +
+      `Локальный последний №${last.draw}, официальный tail начинается с №${oldest.draw}`
     );
   }
 
-  // Все пересекающиеся старые тиражи должны полностью совпасть по базовым данным.
-  for (const s of overlap) {
-    const h = hMap.get(s.draw);
-    if (h.date !== s.date) {
-      throw new Error(`FAIL: №${s.draw}: дата отличается (${h.date} != ${s.date})`);
-    }
-    if (h.time !== s.time) {
-      throw new Error(`FAIL: №${s.draw}: время отличается (${h.time} != ${s.time})`);
-    }
-    if (JSON.stringify(h.balls) !== JSON.stringify(s.balls)) {
-      throw new Error(`FAIL: №${s.draw}: 20 чисел отличаются`);
-    }
-  }
+  const fresh = stoloto.filter(d => d.draw > last.draw);
 
-  const lastTrusted = history.at(-1);
-  const exactAnchor = stolotoDraws.find(d => d.draw === lastTrusted.draw);
-  if (!exactAnchor) {
-    throw new Error(`FAIL: официальный архив не содержит последний доверенный anchor №${lastTrusted.draw}`);
-  }
+  let expected = last.draw + 1;
+  const allowedParity = new Set(['Больше чётных', 'Больше нечётных', 'Поровну']);
+  const allowedMinutes = scheduleMinutesFromHistory(history);
 
-  const fresh = stolotoDraws.filter(d => d.draw > lastTrusted.draw).sort((a, b) => a.draw - b.draw);
-
-  // Новые номера строго подряд.
-  let expected = lastTrusted.draw + 1;
   for (const d of fresh) {
     if (d.draw !== expected) {
       throw new Error(`FAIL: пропуск тиража: ожидался №${expected}, получен №${d.draw}`);
     }
     expected += 1;
-  }
 
-  // Формат результата и официальные метки Столото.
-  const allowedParity = new Set(['Больше чётных', 'Больше нечётных', 'Поровну']);
-  const allowedMinutes = scheduleMinutesFromHistory(history);
-  for (const d of fresh) {
     if (!/^\d{2}\.\d{2}\.\d{2}$/.test(d.date)) {
       throw new Error(`FAIL: №${d.draw}: неверная дата ${d.date}`);
     }
     if (!/^\d{2}:\d{2}$/.test(d.time)) {
       throw new Error(`FAIL: №${d.draw}: неверное время ${d.time}`);
     }
-    const minute = d.time.slice(3, 5);
-    if (allowedMinutes.size && !allowedMinutes.has(minute)) {
-      throw new Error(`FAIL: №${d.draw}: минута ${minute} не соответствует расписанию доверенного архива`);
+    if (allowedMinutes.size && !allowedMinutes.has(d.time.slice(3, 5))) {
+      throw new Error(`FAIL: №${d.draw}: минута ${d.time.slice(3, 5)} не соответствует расписанию архива`);
     }
     if (!allowedParity.has(d.parity)) {
       throw new Error(`FAIL: №${d.draw}: нет официальной метки чёт/нечёт`);
@@ -616,17 +445,17 @@ function validateProduction(stolotoDraws, historyRaw) {
     if (!Number.isInteger(d.column) || d.column < 1 || d.column > 10) {
       throw new Error(`FAIL: №${d.draw}: нет официального «Столбец N»`);
     }
-    if (!Array.isArray(d.balls) || d.balls.length !== 20 || new Set(d.balls).size !== 20) {
-      throw new Error(`FAIL: №${d.draw}: неверный формат 20 чисел`);
-    }
   }
 
-  console.log(`Anchor PASS: №${lastTrusted.draw}; пересечений ${overlap.length}; новых ${fresh.length}`);
-  return { history, fresh };
+  console.log(
+    `Anchor PASS: локальный №${last.draw}; официальный tail №${oldest.draw}–№${newest.draw}; новых ${fresh.length}`
+  );
+
+  return { last, fresh, newest };
 }
 
-function mergePreservingOfficialFields(historyRaw, fresh) {
-  const source = 'Официальный Столото · OAuth · тройная проверка';
+function mergeHistory(historyRaw, fresh) {
+  const source = 'Официальный Столото · OAuth · tail10 · тройная проверка';
   const additions = fresh.map(d => ({
     draw: d.draw,
     date: d.date,
@@ -636,10 +465,13 @@ function mergePreservingOfficialFields(historyRaw, fresh) {
     column: d.column,
     source
   }));
-  return [...historyRaw, ...additions].sort((a, b) => Number(a.draw) - Number(b.draw));
+
+  return [...historyRaw, ...additions]
+    .sort((a, b) => Number(a.draw) - Number(b.draw));
 }
 
 const browser = await chromium.launch({ headless: true });
+
 try {
   const context = await browser.newContext({
     locale: 'ru-RU',
@@ -647,21 +479,26 @@ try {
     viewport: { width: 390, height: 844 },
     userAgent: 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/131 Mobile Safari/537.36'
   });
+
   const page = await context.newPage();
 
   await login(page);
-  const stoloto = await readArchiveThreeTimes(page);
+
+  const officialTail = await readTailThreeTimes(page);
   const historyRaw = await readTrustedHistory();
-  const { fresh } = validateProduction(stoloto, historyRaw);
+  const { last, fresh, newest } = validateAndFindFresh(officialTail, historyRaw);
 
   if (!fresh.length) {
-    console.log(`PASS: новых тиражей нет. Последний доверенный №${historyRaw.at(-1)?.draw}`);
+    console.log(`KENO v7.2 TAIL10 PASS: новых тиражей нет; локальный №${last.draw}; официальный №${newest.draw}`);
   } else {
-    const merged = mergePreservingOfficialFields(historyRaw, fresh);
+    const merged = mergeHistory(historyRaw, fresh);
     await fs.writeFile(HISTORY_FILE, JSON.stringify(merged) + '\n');
-    const last = merged.at(-1);
-    console.log(`PASS: добавлено ${fresh.length} тиражей. Новый последний №${last.draw}`);
-    console.log(`Столото: ${last.parity}; Столбец ${last.column}`);
+
+    const finalLast = merged.at(-1);
+    console.log(
+      `KENO v7.2 TAIL10 PASS: добавлено ${fresh.length}; новый последний №${finalLast.draw}; ` +
+      `${finalLast.parity}; Столбец ${finalLast.column}`
+    );
   }
 } finally {
   await browser.close();
