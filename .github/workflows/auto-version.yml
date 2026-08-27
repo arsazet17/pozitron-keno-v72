@@ -1,0 +1,68 @@
+name: KENO v7.2 · AUTO VERSION
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.js"
+      - "**/*.css"
+      - "refresh-asset-versions.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keno-v72-auto-version
+  cancel-in-progress: true
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Получить актуальный main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Обновить версии JS
+        run: node refresh-asset-versions.mjs
+
+      - name: Сохранить index.html
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- index.html; then
+            echo "Версии уже актуальны"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add index.html
+          git commit -m "KENO v7.2 · AUTO VERSION"
+
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "AUTO VERSION PASS"
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "AUTO VERSION FAIL"
+              exit 1
+            fi
+
+            git fetch origin main
+            git rebase origin/main
+          done
