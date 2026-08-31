@@ -1,0 +1,66 @@
+name: INSTALL · KENO 7.2.2 Payout Archive
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Fresh main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Установить архив и выплаты
+        run: node install-keno-v722-payout-archive.cjs
+
+      - name: Пересчитать build
+        run: node refresh-asset-versions.mjs
+
+      - name: Проверка
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check install-keno-v722-payout-archive.cjs
+          node --check refresh-asset-versions.mjs
+          grep -q 'appVersionBadge' index.html
+          grep -q '>v7.2.2<' index.html
+          ! grep -q 'appBuildBadge' index.html
+          grep -q 'KENO_PAYOUTS_V1' index.html
+          grep -q 'kenoPrize(5,k1Hits)' index.html
+          grep -q '🔥 ' index.html
+          grep -q 'analog-history-head' index.html
+          grep -q '"5"' keno-payouts-v1.json
+          grep -q '400' keno-payouts-v1.json
+          grep -q '1920' keno-payouts-v1.json
+          grep -q '20000' keno-payouts-v1.json
+          grep -q '"version": "7.2.2"' app-version.json
+          echo "CHECK PASS"
+
+      - name: Сохранить
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html app-version.json keno-payouts-v1.json refresh-asset-versions.mjs manifest.webmanifest sw.js
+          if git diff --cached --quiet; then
+            echo "Изменений нет"
+            exit 0
+          fi
+          git commit -m "KENO v7.2.2 · выплаты К5 и новый архив Аналоги+"
+          git push origin HEAD:main
