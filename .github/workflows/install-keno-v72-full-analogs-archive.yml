@@ -1,0 +1,64 @@
+name: INSTALL · KENO 7.2 Full Analogs Archive
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keno-v72-full-analogs-archive
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Fresh main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Установить полный архив Аналоги+
+        run: node install-keno-v72-full-analogs-archive.cjs
+
+      - name: Проверить
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check install-keno-v72-full-analogs-archive.cjs
+          grep -q "analogArchiveStatus" index.html
+          grep -q "Архив всех frozen-прогнозов" index.html
+          grep -q "ap-krow" index.html
+          grep -q "К5 №1" index.html
+          grep -q "К5 №2" index.html
+          grep -q "Архив прогнозов" index.html
+          echo "CHECK PASS"
+
+      - name: Сохранить
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- index.html; then
+            echo "Изменений нет"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add index.html
+          git commit -m "KENO v7.2 · полный архив frozen-прогнозов Аналоги+"
+          git push origin HEAD:main
