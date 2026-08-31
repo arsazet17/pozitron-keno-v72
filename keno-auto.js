@@ -468,6 +468,39 @@ function dateIndices(draws, date) {
   return out;
 }
 
+function groupForecastSnapshot(pred, ranked) {
+  const label = state => state === 4 ? '4+' : String(state);
+  const availableOrder = pred.order.filter(state => (pred.available[state] || []).length);
+  const topState = availableOrder.length ? availableOrder[0] : null;
+  const selectedStates = ranked.slice(0, 4).map(row => Number(row.state));
+  const slotCounts = Array(5).fill(0);
+  selectedStates.forEach(state => {
+    if (state >= 0 && state <= 4) slotCounts[state] += 1;
+  });
+
+  const probabilities = {};
+  const available = {};
+  const slots = {};
+  for (let state = 0; state <= 4; state += 1) {
+    const key = label(state);
+    probabilities[key] = Number((pred.probs[state] || 0).toFixed(6));
+    available[key] = (pred.available[state] || []).map(Number);
+    slots[key] = slotCounts[state];
+  }
+
+  return {
+    topState,
+    topGroup: topState === null ? null : label(topState),
+    orderStates: availableOrder,
+    orderGroups: availableOrder.map(label),
+    probabilities,
+    available,
+    selectedStates,
+    selectedGroups: [...new Set(selectedStates.map(label))],
+    slots
+  };
+}
+
 function makeSprintModel(draws, winnerCache, stateCache, drawCounts, dayIndices) {
   const cycles = splitIntoCycles(draws, dayIndices);
   const chosenCycles = cycles.slice(-2);
@@ -505,6 +538,7 @@ function makeSprintModel(draws, winnerCache, stateCache, drawCounts, dayIndices)
     window: chosen.length,
     columns: ranked.slice(0, 4).map(row => row.col),
     rows: ranked.slice(0, 4),
+    groupForecast: groupForecastSnapshot(pred, ranked),
     signal: signal.signal,
     signalScore: signal.signalScore,
     exact: pred.exact,
@@ -552,6 +586,7 @@ function makeMarathonModel(draws, winnerCache, stateCache, drawCounts, dayIndice
     window: chosen.length,
     columns: ranked.slice(0, 4).map(row => row.col),
     rows: ranked.slice(0, 4),
+    groupForecast: groupForecastSnapshot(pred, ranked),
     signal: signal.signal,
     signalScore: signal.signalScore,
     exact: pred.exact,
@@ -659,6 +694,7 @@ async function main() {
     : [];
 
   const byDraw = new Map(draws.map(d => [d.draw, d]));
+  const drawIndexByNumber = new Map(draws.map((d, i) => [Number(d.draw), i]));
 
   // Старые прогнозы не переписываем.
   // Только закрываем ожидающие записи по фактически вышедшему тиражу.
@@ -678,6 +714,34 @@ async function main() {
     row.place = place >= 0 ? place + 1 : 0;
     row.hit = place >= 0 && place < 4;
     row.first = place === 0;
+
+    // Закрываем группу только если её прогноз был frozen заранее.
+    // Уже закрытые старые строки задним числом не обогащаем.
+    if (row.groupForecast && typeof row.groupForecast === 'object') {
+      const actualIndex = drawIndexByNumber.get(Number(row.targetDraw));
+      const prev = Number.isInteger(actualIndex) && actualIndex > 0
+        ? draws[actualIndex - 1]
+        : null;
+      const actualCounts = prev ? counts(prev) : null;
+      const actualGroupState = actualCounts
+        ? Math.min(4, actualCounts[actualWinner] || 0)
+        : null;
+      const actualGroup = actualGroupState === 4
+        ? '4+'
+        : (actualGroupState === null ? null : String(actualGroupState));
+
+      const selectedStates = Array.isArray(row.groupForecast.selectedStates)
+        ? row.groupForecast.selectedStates.map(Number)
+        : [];
+
+      row.actualGroupState = actualGroupState;
+      row.actualGroup = actualGroup;
+      row.groupTopHit = actualGroupState !== null
+        && Number(row.groupForecast.topState) === actualGroupState;
+      row.groupCovered = actualGroupState !== null
+        && selectedStates.includes(actualGroupState);
+    }
+
     row.checkedAt = new Date().toISOString();
   }
 
@@ -718,6 +782,7 @@ async function main() {
       targetDraw: last.draw + 1,
       createdAt: new Date().toISOString(),
       columns: current[type].columns.slice(),
+      groupForecast: JSON.parse(JSON.stringify(current[type].groupForecast || null)),
       checked: false
     };
 
@@ -731,11 +796,15 @@ async function main() {
       // Если для ещё не вышедшего тиража успел сохраниться прогноз старого
       // direct-v2, заменяем только эту незакрытую запись экранным 2.1.0.
       Object.assign(existing, nextRecord);
+    } else if (!existing.checked && !existing.groupForecast) {
+      // Для текущего ещё не вышедшего frozen-прогноза столбцы не меняем.
+      // Дописываем только снимок групп из того же состояния архива.
+      existing.groupForecast = nextRecord.groupForecast;
     }
   }
 
   const output = {
-    version: 3,
+    version: 4,
     modelVersion: MODEL_VERSION,
     algorithmVersion: ALGORITHM_VERSION,
     source: SOURCE_NAME,
