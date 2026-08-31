@@ -1,0 +1,86 @@
+name: KENO v7.2 · AUTO APP VERSION
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "index.html"
+      - "manifest.webmanifest"
+      - "sprint-marathon.js"
+      - "max-retro.js"
+      - "next-draw-banner.js"
+      - "refresh-asset-versions.mjs"
+      - "icon-v72.png"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keno-v72-auto-app-version
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Fresh main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Пересчитать build и cache
+        run: node refresh-asset-versions.mjs
+
+      - name: Проверка
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check refresh-asset-versions.mjs
+          grep -q 'name="app-build"' index.html
+          grep -q 'appBuildBadge' index.html
+          grep -q 'v72-sw-register' index.html
+          grep -q 'pozitron-v72-shell-' sw.js
+          grep -q '"start_url": "./?v=' manifest.webmanifest
+          echo "CHECK PASS"
+
+      - name: Сохранить только если приложение реально изменилось
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- index.html manifest.webmanifest sw.js; then
+            echo "APP BUILD unchanged"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add index.html manifest.webmanifest sw.js
+          git commit -m "KENO v7.2 · AUTO APP VERSION"
+
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "AUTO APP VERSION PASS"
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "AUTO APP VERSION FAIL"
+              exit 1
+            fi
+            git fetch origin main
+            git rebase origin/main
+          done

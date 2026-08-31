@@ -1,0 +1,61 @@
+name: INSTALL · KENO 7.2 Auto App Version
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Fresh main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Убрать старый workflow
+        run: node install-keno-v72-auto-app-version.cjs
+
+      - name: Создать первый build
+        run: node refresh-asset-versions.mjs
+
+      - name: Проверка
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check refresh-asset-versions.mjs
+          grep -q 'name="app-build"' index.html
+          grep -q 'appBuildBadge' index.html
+          grep -q 'v72-sw-register' index.html
+          grep -q 'pozitron-v72-shell-' sw.js
+          grep -q '"start_url": "./?v=' manifest.webmanifest
+          echo "CHECK PASS"
+
+      - name: Сохранить
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Изменений нет"
+            exit 0
+          fi
+
+          git commit -m "KENO v7.2 · установить автообновление приложения"
+          git push origin HEAD:main
