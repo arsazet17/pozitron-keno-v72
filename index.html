@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-build" content="f4e6580ecb8f">
+<meta name="app-build" content="830fb159399e">
 <title>ПОЗИТРОН КЕНО v7.2</title>
 <link rel="manifest" href="manifest.webmanifest">
 
@@ -140,7 +140,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div class="top">
     <div>
       <div class="brand">🎯 ПОЗИТРОН КЕНО v7.2</div>
-      <div class="sub">сборка <span id="appBuildBadge">build f4e6580ecb8f</span></div>
+      <div class="sub">сборка <span id="appBuildBadge">build 830fb159399e</span></div>
       <div style="display:inline-block;margin-top:6px;padding:5px 10px;border:2px solid #4ade80;border-radius:10px;color:#4ade80;font-weight:900">НОВАЯ СБОРКА 7.2 · AI ПЕРЕХОДОВ</div>
       <div id="status" class="sub">v7.2 · AI переходов и ретропоиск · база загружается…</div>
     </div>
@@ -844,7 +844,7 @@ load();render();auto();setTimeout(update,800);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=f4e6580ecb8f', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=830fb159399e', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) {
       console.warn('SW update failed', e);
