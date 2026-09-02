@@ -1,0 +1,112 @@
+name: KENO v7.2.4 · Group Movement 2.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - apply-group-movement-v230.cjs
+      - .github/workflows/apply-group-movement-v230.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keno-stoloto-auto
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Получить актуальный репозиторий
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Применить Group Movement
+        run: node apply-group-movement-v230.cjs
+
+      - name: Проверить синтаксис
+        run: |
+          node --check sprint-marathon.js
+          node --check keno-auto.js
+          grep -q "GROUP_MOVEMENT_V230" sprint-marathon.js
+          grep -q "GROUP_MOVEMENT_V230" keno-auto.js
+
+      - name: Реальный расчёт на текущем архиве
+        run: node keno-auto.js
+
+      - name: Проверить оба прогноза
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('keno-auto.json', 'utf8'));
+
+          if (x.algorithmVersion !== '2.3.0') {
+            throw new Error(`algorithmVersion=${x.algorithmVersion}`);
+          }
+          if (x.modelVersion !== 'screen-sm-2.3.0') {
+            throw new Error(`modelVersion=${x.modelVersion}`);
+          }
+
+          for (const type of ['sprint', 'marathon']) {
+            const m = x.current?.[type];
+            if (!m) throw new Error(`Нет current.${type}`);
+            if (!Array.isArray(m.columns) || m.columns.length !== 4) {
+              throw new Error(`${type}: не 4 столбца`);
+            }
+            if (!Array.isArray(m.rows) || m.rows.length !== 4) {
+              throw new Error(`${type}: нет 4 строк рейтинга`);
+            }
+
+            for (const row of m.rows) {
+              if (!Number.isFinite(Number(row.movementPoints))) {
+                throw new Error(`${type}: ст${row.col} без movementPoints`);
+              }
+              if (!Array.isArray(row.movementSignals)) {
+                throw new Error(`${type}: ст${row.col} без movementSignals`);
+              }
+            }
+
+            console.log(
+              `${type.toUpperCase()}: ` +
+              m.rows.map(r => `ст${r.col}[GM ${Number(r.movementPoints).toFixed(2)}]`).join(' · ')
+            );
+          }
+
+          console.log(`LIVE TEST OK · latestDraw=${x.latestDraw}`);
+          NODE
+
+      - name: Сохранить только после успешного теста
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            sprint-marathon.js \
+            keno-auto.js \
+            keno-auto.json \
+            app-version.json \
+            manifest.webmanifest \
+            sw.js \
+            index.html
+
+          if git diff --cached --quiet; then
+            echo "Group Movement уже установлен."
+            exit 0
+          fi
+
+          git commit -m "KENO v7.2.4: Group Movement 2.3 для Спринта и Марафона"
+          git pull --rebase origin main
+          git push
