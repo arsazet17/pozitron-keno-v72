@@ -6,8 +6,8 @@ const SOURCE_NAME = 'Официальный Столото · OAuth · трой�
 const HISTORY_FILE = 'keno-history.json';
 const OUTPUT_FILE = 'keno-auto.json';
 
-const ALGORITHM_VERSION = '2.1.0';
-const MODEL_VERSION = 'screen-sm-2.1.0';
+const ALGORITHM_VERSION = '2.3.0';
+const MODEL_VERSION = 'screen-sm-2.3.0';
 
 const colOf = n => n % 10 || 10;
 
@@ -333,6 +333,197 @@ function signalFromRows(rows) {
   };
 }
 
+
+// GROUP_MOVEMENT_V230
+const GROUP_MOVEMENT_CONFIG = {
+  p2:    { minN: 1200, minHalf: 500, edge: 0.0040, alpha: 400, sprint: 0.28, marathon: 0.12 },
+  p3:    { minN:  700, minHalf: 250, edge: 0.0050, alpha: 300, sprint: 0.25, marathon: 0.18 },
+  p4:    { minN:  450, minHalf: 180, edge: 0.0060, alpha: 220, sprint: 0.20, marathon: 0.25 },
+  p5:    { minN:  350, minHalf: 140, edge: 0.0065, alpha: 180, sprint: 0.12, marathon: 0.25 },
+  nbr:   { minN:  900, minHalf: 350, edge: 0.0045, alpha: 350, sprint: 0.12, marathon: 0.12 },
+  empty: { minN:  200, minHalf:  75, edge: 0.0060, alpha: 250, sprint: 0.08, marathon: 0.08 }
+};
+
+const GROUP_MOVEMENT_CACHE = new Map();
+
+function gmNewBook() {
+  return { all: new Map(), first: new Map(), second: new Map() };
+}
+
+function gmBump(map, key, hit) {
+  const row = map.get(key) || { n: 0, wins: 0 };
+  row.n += 1;
+  if (hit) row.wins += 1;
+  map.set(key, row);
+}
+
+function gmAdd(book, key, hit, firstHalf) {
+  gmBump(book.all, key, hit);
+  gmBump(firstHalf ? book.first : book.second, key, hit);
+}
+
+function gmStateAt(drawCounts, index, col) {
+  return Math.min(4, drawCounts[index]?.[col] || 0);
+}
+
+function gmStateText(value) {
+  return Number(value) === 4 ? '4+' : String(value);
+}
+
+function gmPathKey(drawCounts, endIndex, col, len) {
+  const out = [];
+  for (let i = endIndex - len + 1; i <= endIndex; i += 1) {
+    out.push(gmStateAt(drawCounts, i, col));
+  }
+  return out.join('>');
+}
+
+function gmNeighborKey(drawCounts, index, col) {
+  const left = col === 1 ? 10 : col - 1;
+  const right = col === 10 ? 1 : col + 1;
+  const sides = [
+    gmStateAt(drawCounts, index, left),
+    gmStateAt(drawCounts, index, right)
+  ].sort((a, b) => a - b);
+  return `${gmStateAt(drawCounts, index, col)}|${sides[0]}|${sides[1]}`;
+}
+
+function gmEmptyBucket(drawCounts, index, col) {
+  if (gmStateAt(drawCounts, index, col) !== 0) return null;
+  let streak = 0;
+  for (let i = index; i >= 0 && streak < 4; i -= 1) {
+    if (gmStateAt(drawCounts, i, col) !== 0) break;
+    streak += 1;
+  }
+  return String(Math.min(4, streak));
+}
+
+function buildGroupMovementStats(draws, winnerCache, drawCounts, endIndex) {
+  const cacheKey = `${draws.length}:${endIndex}:${Number(draws[endIndex]?.draw || 0)}`;
+  if (GROUP_MOVEMENT_CACHE.has(cacheKey)) return GROUP_MOVEMENT_CACHE.get(cacheKey);
+
+  const books = {
+    p2: gmNewBook(), p3: gmNewBook(), p4: gmNewBook(),
+    p5: gmNewBook(), nbr: gmNewBook(), empty: gmNewBook()
+  };
+  const zeroStreak = Array(11).fill(0);
+  const split = Math.floor(endIndex / 2);
+
+  for (let t = 0; t < endIndex; t += 1) {
+    const nextWinner = winnerCache[t + 1];
+    const firstHalf = t < split;
+
+    for (let col = 1; col <= 10; col += 1) {
+      const hit = col === nextWinner;
+      const state = gmStateAt(drawCounts, t, col);
+      zeroStreak[col] = state === 0 ? Math.min(4, zeroStreak[col] + 1) : 0;
+
+      for (const len of [2, 3, 4, 5]) {
+        if (t < len - 1) continue;
+        gmAdd(books[`p${len}`], gmPathKey(drawCounts, t, col, len), hit, firstHalf);
+      }
+
+      gmAdd(books.nbr, gmNeighborKey(drawCounts, t, col), hit, firstHalf);
+      if (state === 0) gmAdd(books.empty, String(zeroStreak[col]), hit, firstHalf);
+    }
+  }
+
+  const stats = { books };
+  GROUP_MOVEMENT_CACHE.set(cacheKey, stats);
+  return stats;
+}
+
+function gmFeatureLabel(feature, key) {
+  if (feature[0] === 'p') return key.split('>').map(gmStateText).join('→');
+  if (feature === 'nbr') {
+    const [self, a, b] = key.split('|');
+    return `${gmStateText(self)} · соседи ${gmStateText(a)}/${gmStateText(b)}`;
+  }
+  return `пусто ×${key === '4' ? '4+' : key}`;
+}
+
+function gmStableSignal(stats, feature, key, typeKey) {
+  const cfg = GROUP_MOVEMENT_CONFIG[feature];
+  const book = stats.books[feature];
+  const all = book.all.get(key);
+  const first = book.first.get(key);
+  const second = book.second.get(key);
+
+  if (!all || !first || !second) return null;
+  if (all.n < cfg.minN || first.n < cfg.minHalf || second.n < cfg.minHalf) return null;
+
+  const posterior = (all.wins + 0.10 * cfg.alpha) / (all.n + cfg.alpha);
+  const halfAlpha = cfg.alpha / 2;
+  const r1 = (first.wins + 0.10 * halfAlpha) / (first.n + halfAlpha);
+  const r2 = (second.wins + 0.10 * halfAlpha) / (second.n + halfAlpha);
+
+  if (Math.abs(posterior - 0.10) < cfg.edge) return null;
+  if ((r1 - 0.10) * (r2 - 0.10) <= 0) return null;
+  if (Math.abs(r1 - r2) > 0.025) return null;
+
+  const normalized = Math.max(-1, Math.min(1, (posterior - 0.10) / 0.02));
+  const weight = typeKey === 'sprint' ? cfg.sprint : cfg.marathon;
+
+  return {
+    feature,
+    key,
+    n: all.n,
+    rate: all.wins / all.n,
+    posterior,
+    weight,
+    effect: normalized * weight,
+    label: gmFeatureLabel(feature, key)
+  };
+}
+
+function groupMovementScore(draws, winnerCache, drawCounts, endIndex, col, typeKey) {
+  const stats = buildGroupMovementStats(draws, winnerCache, drawCounts, endIndex);
+  const signals = [];
+
+  for (const len of [2, 3, 4, 5]) {
+    const feature = `p${len}`;
+    const signal = gmStableSignal(
+      stats,
+      feature,
+      gmPathKey(drawCounts, endIndex, col, len),
+      typeKey
+    );
+    if (signal) signals.push(signal);
+  }
+
+  const neighbor = gmStableSignal(
+    stats,
+    'nbr',
+    gmNeighborKey(drawCounts, endIndex, col),
+    typeKey
+  );
+  if (neighbor) signals.push(neighbor);
+
+  const emptyKey = gmEmptyBucket(drawCounts, endIndex, col);
+  if (emptyKey !== null) {
+    const empty = gmStableSignal(stats, 'empty', emptyKey, typeKey);
+    if (empty) signals.push(empty);
+  }
+
+  const weightedSum = signals.reduce((sum, s) => sum + s.effect, 0);
+  const weightSum = signals.reduce((sum, s) => sum + s.weight, 0);
+  const quality = weightedSum / Math.max(0.25, weightSum);
+  const coverage = Math.min(1, weightSum / 0.35);
+  const scale = typeKey === 'sprint' ? 1.10 : 1.00;
+  const points = Math.max(-0.85, Math.min(0.85, quality * coverage * scale));
+
+  signals.sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect) || b.n - a.n);
+
+  return {
+    points,
+    activeWeight: weightSum,
+    signals,
+    summary: signals.slice(0, 2).map(s =>
+      `${s.label} ${Math.round(s.rate * 1000) / 10}% N${s.n}`
+    ).join('; ')
+  };
+}
+
 function rankColumns(draws, winnerCache, drawCounts, pred, endIndex, typeKey) {
   const current = drawCounts[endIndex];
   const rows = [];
@@ -366,7 +557,16 @@ function rankColumns(draws, winnerCache, drawCounts, pred, endIndex, typeKey) {
       ? 0.65 * rate12 + 0.35 * rate30
       : 0.55 * rate80 + 0.45 * rate240;
 
-    const score = sprint
+    const movement = groupMovementScore(
+      draws,
+      winnerCache,
+      drawCounts,
+      endIndex,
+      col,
+      typeKey
+    );
+
+    const baseScore = sprint
       ? activity * 55
         + transition * 25
         + perColumnRegime * 12
@@ -376,6 +576,8 @@ function rankColumns(draws, winnerCache, drawCounts, pred, endIndex, typeKey) {
         + stability * 3
         + perColumnRegime * 5;
 
+    const score = baseScore + movement.points;
+
     const reasons = [];
     reasons.push(
       sprint
@@ -384,6 +586,7 @@ function rankColumns(draws, winnerCache, drawCounts, pred, endIndex, typeKey) {
     );
     reasons.push(`переход ${Math.round(transition * 100)}%`);
     reasons.push(`режим ${state === 4 ? '4+' : state} — малый вес`);
+    reasons.push(movement.signals.length ? `движение групп ${movement.points >= 0 ? '+' : ''}${movement.points.toFixed(2)} · ${movement.summary}` : 'движение групп: устойчивого сигнала нет');
 
     rows.push({
       col,
@@ -395,7 +598,10 @@ function rankColumns(draws, winnerCache, drawCounts, pred, endIndex, typeKey) {
       activity,
       transition,
       momentum,
-      stability
+      stability,
+      baseScore,
+      movementPoints: movement.points,
+      movementSignals: movement.signals
     });
   }
 

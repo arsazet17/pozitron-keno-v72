@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-build" content="a30ea99aa906">
-<title>ПОЗИТРОН КЕНО v7.2.2</title>
+<meta name="app-build" content="gm230-020926">
+<title>ПОЗИТРОН КЕНО v7.2.4</title>
 <link rel="manifest" href="manifest.webmanifest">
 
 <link rel="icon" type="image/svg+xml" href="icon-v72.png">
@@ -191,9 +191,9 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div class="top">
     <div>
       <div class="brand">🎯 ПОЗИТРОН КЕНО</div>
-      <span id="appVersionBadge" class="version-badge">v7.2.2</span>
+      <span id="appVersionBadge" class="version-badge">v7.2.4</span>
 <div style="display:inline-block;margin-top:6px;padding:5px 10px;border:2px solid #4ade80;border-radius:10px;color:#4ade80;font-weight:900">НОВАЯ СБОРКА 7.2 · AI ПЕРЕХОДОВ</div>
-      <div id="status" class="sub">v7.2.2 · AI переходов и ретропоиск · база загружается…</div>
+      <div id="status" class="sub">v7.2.4 · AI переходов и ретропоиск · база загружается…</div>
     </div>
     <div>
       <button id="sync" class="icon">↻</button>
@@ -208,7 +208,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   </div>
 
   <div class="sub" style="margin:0 2px 8px">🔸 реальное переходное число из предыдущего тиража · зелёная линия — одно и то же число стоит на одинаковом месте в выпадении и возрастании</div>
-  <div class="row small" style="margin:0 0 9px;border-color:#4b6f46"><b>v7.2.2:</b> переходы — главный анализ. Диапазоны по 4 числа, шаговость, чередование и заполнение архива учитываются в новом «AI Переходов».</div>
+  <div class="row small" style="margin:0 0 9px;border-color:#4b6f46"><b>v7.2.4:</b> переходы — главный анализ. Диапазоны по 4 числа, шаговость, чередование и заполнение архива учитываются в новом «AI Переходов».</div>
 
   <main id="cards"></main>
 
@@ -283,7 +283,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   </section>
 
   <section id="infoPanel" class="card panel">
-    <p class="small">Версия v7.2.2: основной упор сделан на переходы чисел между тиражами, длины цепочек, шаговость и чередование внутри диапазонов. Столбы, одиночные и пустые позиции сохранены как дополнительные признаки. Ретропоиск сравнивает текущую картину со всем архивом и показывает, что происходило следующим.</p>
+    <p class="small">Версия v7.2.4: основной упор сделан на переходы чисел между тиражами, длины цепочек, шаговость и чередование внутри диапазонов. Столбы, одиночные и пустые позиции сохранены как дополнительные признаки. Ретропоиск сравнивает текущую картину со всем архивом и показывает, что происходило следующим.</p>
   </section>
 </div>
 
@@ -831,7 +831,7 @@ async function runQualityAudit(){
 }
 
 function render(){
- $('status').textContent=draws.length?`v7.2.2 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.2.2 · база: 0';
+ $('status').textContent=draws.length?`v7.2.4 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.2.4 · база: 0';
  if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
  renderCards();renderChains();renderArchive();renderLivePredictionCheck();renderPredictionHistory()
 }
@@ -885,7 +885,7 @@ if(forecastHistoryToggle&&forecastHistoryContent){
 }
 load();render();auto();setTimeout(update,800);
 </script>
-<script src="sprint-marathon.js?v=44411a35a7e3"></script>
+<script src="sprint-marathon.js?v=gm230-020926"></script>
 <script src="max-retro.js?v=60cf4df7bd49"></script>
 <script src="next-draw-banner.js?v=6e35ed57907b"></script>
 
@@ -893,7 +893,7 @@ load();render();auto();setTimeout(update,800);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=a30ea99aa906', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=gm230-020926', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });
