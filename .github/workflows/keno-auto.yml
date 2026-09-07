@@ -13,7 +13,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Кто запустил workflow
@@ -40,7 +40,6 @@ jobs:
           node-version: "22"
 
       - name: Кэш Chromium Playwright
-        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -52,11 +51,28 @@ jobs:
           npm install --no-save playwright@1.54.2
           npx playwright install --with-deps chromium
 
-      - name: Столото OAuth · последние 10 · 3 проверки
+      - name: Столото OAuth · robust tail10 · 3 проверки
         env:
           STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
           STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
-        run: node stoloto-keno-update.mjs
+        run: |
+          set -u
+          ok=0
+          for attempt in 1 2 3 4 5 6; do
+            echo "KENO v7.2 Stoloto attempt $attempt/6"
+            if node stoloto-keno-update-v2.mjs; then
+              ok=1
+              break
+            fi
+            if [ "$attempt" -lt 6 ]; then
+              echo "Reader failed; retry in 20 sec..."
+              sleep 20
+            fi
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::KENO v7.2 Stoloto reader failed after 6 attempts"
+            exit 1
+          fi
 
       - name: Пересчитать Спринт / Марафон при новом тираже
         run: |
@@ -77,7 +93,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add keno-history.json keno-auto.json
-          git commit -m "KENO v7.2 · Stoloto tail10 auto"
+          git commit -m "KENO v7.2 · robust Stoloto tail10"
 
           git fetch origin main
           git rebase origin/main
