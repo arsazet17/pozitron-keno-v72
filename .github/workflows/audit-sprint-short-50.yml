@@ -1,0 +1,30 @@
+name: Sprint short independent audit
+
+on:
+  push:
+    branches:
+      - audit-sprint-short-50
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run frozen walk-forward audit
+        run: node tools/audit-sprint-short-50.js
+      - name: Upload audit result
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprint-short-independent50
+          path: outputs/sprint-short-independent50/
+          if-no-files-found: error
