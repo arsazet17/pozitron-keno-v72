@@ -1,7 +1,6 @@
 'use strict';
 
 const fs = require('fs');
-const vm = require('vm');
 const path = require('path');
 
 const file = path.join(__dirname, 'audit-sprint-short-50.js');
@@ -14,4 +13,5 @@ src = src.replace(
   '  return {books};\n}\n\nfunction gmStableSignal',
   '  const __value = {books};\n  __GM_AUDIT_CACHE.set(endIndex, __value);\n  return __value;\n}\n\nfunction gmStableSignal'
 );
-vm.runInThisContext(src, { filename: file });
+const run = new Function('require', '__filename', '__dirname', src);
+run(require, file, __dirname);
