@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: '20'
       - name: Run frozen walk-forward audit
-        run: node tools/audit-sprint-short-50.js
+        run: node tools/audit-sprint-short-50-fast.js
       - name: Upload audit result
         uses: actions/upload-artifact@v4
         with:
