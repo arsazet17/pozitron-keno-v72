@@ -92,6 +92,9 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Столото recovery tail30 · 3 проверки
+        env:
+          STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
+          STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
         run: |
           set -u
           sed 's/const TAIL_SIZE=10;/const TAIL_SIZE=30;/' stoloto-keno-update-v2.mjs > stoloto-keno-update-recovery.mjs
