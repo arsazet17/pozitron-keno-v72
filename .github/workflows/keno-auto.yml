@@ -2,6 +2,8 @@ name: Keno Auto · Stoloto MAIN
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
 
 permissions:
   contents: write
@@ -33,6 +35,25 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
           echo "WORKING_SHA=$(git rev-parse HEAD)"
+
+      - name: Восстановить только пропущенные факты после отката
+        run: |
+          LAST=$(node -e "const x=require('./keno-history.json'); console.log(x[x.length-1].draw)")
+          echo "LOCAL_LAST=$LAST"
+          if [ "$LAST" -le 327784 ]; then
+            echo "После отката база оборвана. Беру только keno-history.json из проверенного снимка 874a5fc..."
+            git cat-file -e 874a5fc8c3a6742e2c72c1eb9d7d08f3850fe1c7:keno-history.json
+            git show 874a5fc8c3a6742e2c72c1eb9d7d08f3850fe1c7:keno-history.json > keno-history.json.recovered
+            RECOVERED_LAST=$(node -e "const x=require('./keno-history.json.recovered'); console.log(x[x.length-1].draw)")
+            echo "RECOVERED_LAST=$RECOVERED_LAST"
+            if [ "$RECOVERED_LAST" -lt 327824 ]; then
+              echo "::error::Recovery snapshot is not new enough"
+              exit 1
+            fi
+            mv keno-history.json.recovered keno-history.json
+          else
+            echo "Recovery not needed"
+          fi
 
       - name: Node.js 22
         uses: actions/setup-node@v4
