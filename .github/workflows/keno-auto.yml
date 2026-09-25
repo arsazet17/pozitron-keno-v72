@@ -116,12 +116,18 @@ jobs:
             exit 1
           fi
 
-      - name: Пересчитать Спринт / Марафон при новом тираже
+      - name: Пересчитать Спринт / Марафон при новом тираже или новой версии
         run: |
-          if git diff --quiet -- keno-history.json; then
-            echo "Нового тиража нет — прогнозный JSON не пересчитываю"
+          set -euo pipefail
+          HISTORY_LAST=$(node -e "const x=require('./keno-history.json'); console.log(Math.max(...x.map(r=>Number(r.draw)||0)))")
+          AUTO_VERSION=$(node -e "try{const x=require('./keno-auto.json'); console.log(x.algorithmVersion||'')}catch(e){console.log('')}")
+          CODE_VERSION=$(node -e "const fs=require('fs'); const s=fs.readFileSync('keno-auto.js','utf8'); const m=s.match(/ALGORITHM_VERSION\\s*=\\s*['\"]([^'\"]+)/); console.log(m?m[1]:'')")
+          echo "HISTORY_LAST=$HISTORY_LAST AUTO_VERSION=$AUTO_VERSION CODE_VERSION=$CODE_VERSION"
+          if git diff --quiet -- keno-history.json && [ "$AUTO_VERSION" = "$CODE_VERSION" ]; then
+            echo "Нового тиража нет и версия прогноза актуальна"
             exit 0
           fi
+          echo "Пересчитываю Sprint/Marathon: новый факт или новая версия алгоритма"
           node keno-auto.js
 
       - name: Сохранить безопасное обновление
