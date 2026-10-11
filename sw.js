@@ -1,7 +1,7 @@
-const CACHE='pozitron-v72-shell-b5-server-728';
+const CACHE='pozitron-v72-shell-668ae81448de';
 const SHELL=[
  './','./index.html','./manifest.webmanifest',
- './virtus-b5-module.js','./sprint-marathon.js','./max-retro.js','./next-draw-banner.js',
+ './sprint-marathon.js','./max-retro.js','./next-draw-banner.js',
  './keno-payouts-v1.json','./icon-v72.png'
 ];
 self.addEventListener('install',event=>event.waitUntil(
