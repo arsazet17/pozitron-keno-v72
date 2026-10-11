@@ -29,7 +29,7 @@ function render(){
  const done=recs.filter(r=>r.result&&r.result.source==='official'&&fiveOf(r)),s=stat(done,hitOf);
  h+='<details open><summary>📊 Проверка · '+s.h+' попаданий / '+s.n+' тиражей</summary><p>'+s.rate+' · 95% ДИ '+s.ci+' · случайный уровень 50% · избыток '+s.excess+' · z '+s.z+' · макс. серия промахов '+s.mx+'</p><p>Накоплено '+s.n+' из 800 тиражей. До 800 выводы предварительные.</p></details>';
  h+='<details><summary>📋 Архив</summary>';
- for(const r of recs.slice(-150).reverse()){const f=fiveOf(r);h+='<div style="border-bottom:1px solid #30435b;padding:8px 0"><b>№'+r.draw+' · '+esc(r.date)+' '+esc(r.time)+'</b><div>'+(r.result?'Официальный ст'+r.result.winner:'⏳ Ожидаем факт')+'</div>'+(f?'<div>'+f.cols.map(c=>'ст'+c).join(' · ')+' · '+(!r.result?'⏳':hitOf(r)?'✅ ПОПАЛ':'❌ МИМО')+'</div>':'<div>прогноз не из пяти столбцов</div>')+'</div>'}
+ for(const r of recs.slice(-150).reverse()){const f=fiveOf(r);h+='<div style="border-bottom:1px solid #30435b;padding:8px 0"><b>№'+r.draw+' · '+esc(r.date)+' '+esc(r.time)+'</b><div>'+(r.result?'Официальный ст'+r.result.winner:'⏳ Ожидаем факт')+'</div>'+(f?'<div>'+f.cols.map(c=>(r.result&&Number(c)===Number(r.result.winner)?'✅ ст'+c:'ст'+c)).join(' · ')+' · '+(!r.result?'⏳':hitOf(r)?'✅ ПОПАЛ':'❌ МИМО')+'</div>':'<div>прогноз не из пяти столбцов</div>')+'</div>'}
  h+='</details>';
  const sh=['B','V','G'].map(k=>{const t=stat(recs.filter(r=>r.result&&r.result.source==='official'&&r.five&&valid(r.five[k])),r=>r.result[k]);return 'вариант '+k+': '+t.h+'/'+t.n+' ('+t.rate+')'});
  const ct=stat(recs.filter(r=>r.result&&r.result.source==='official'&&valid(r.control)),r=>r.control.includes(r.result.winner));
