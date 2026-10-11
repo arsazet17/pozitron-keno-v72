@@ -10,6 +10,7 @@ function fail(message) { throw new Error('[B5 journal] ' + message); }
 function dateOf(s) {
   if (/^\d{2}\.\d{2}\.\d{2}$/.test(s)) return s;
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(2,4);
+  if (s.length===10 && s[2]==='.' && s[5]==='.') return s.slice(0,6)+s.slice(-2);
   fail('unsupported date ' + s);
 }
 function drawTimeUtc(date,time) {
