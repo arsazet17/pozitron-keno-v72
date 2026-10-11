@@ -137,7 +137,7 @@ jobs:
 
       - name: Сохранить безопасное обновление
         run: |
-          if git diff --quiet -- keno-history.json keno-auto.json b5-journal.json && [ ! -f b5-journal.json ]; then
+          if [ -z "$(git status --porcelain -- keno-history.json keno-auto.json b5-journal.json)" ]; then
             echo "Изменений нет"
             exit 0
           fi
