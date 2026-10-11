@@ -116,6 +116,11 @@ jobs:
             exit 1
           fi
 
+      - name: B5 · зафиксировать прогноз до следующего тиража и проверить факты
+        run: |
+          set -euo pipefail
+          node b5-journal.cjs
+
       - name: Пересчитать Спринт / Марафон при новом тираже или новой версии
         run: |
           set -euo pipefail
@@ -132,7 +137,7 @@ jobs:
 
       - name: Сохранить безопасное обновление
         run: |
-          if git diff --quiet -- keno-history.json keno-auto.json; then
+          if git diff --quiet -- keno-history.json keno-auto.json b5-journal.json && [ ! -f b5-journal.json ]; then
             echo "Изменений нет"
             exit 0
           fi
@@ -140,7 +145,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add keno-history.json keno-auto.json
+          git add keno-history.json keno-auto.json b5-journal.json
           git commit -m "KENO v7.2 · recover facts from live v6.3 + Stoloto tail30"
 
           git fetch origin main
