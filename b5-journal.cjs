@@ -5,6 +5,12 @@ const fs = require('node:fs');
 const B5 = require('./virtus-b5-module.js');
 const HISTORY = 'keno-history.json';
 const FILE = 'b5-journal.json';
+// ЕДИНСТВЕННЫЙ показываемый прогноз = ровно пять столбцов варианта PRIMARY.
+// Выбран только по старому архиву (32 706 тиражей до №329287): A z=+0.67, B +0.55, V +0.42, G -0.62.
+// Значимых различий нет (порог |z|>=2.58), поэтому по заранее заданному правилу взят простейший вариант A.
+// Остальные варианты пишутся в журнал как теневые (для независимой проверки), но не показываются как прогноз.
+const PRIMARY = 'A';
+function exactFive(five, name) { if (!Array.isArray(five) || five.length !== 5 || new Set(five).size !== 5 || five.some(c => !Number.isInteger(c) || c < 1 || c > 10)) fail('forecast ' + name + ' is not exactly five different columns'); }
 const now = new Date();
 function fail(message) { throw new Error('[B5 journal] ' + message); }
 function dateOf(s) {
@@ -38,6 +44,7 @@ for(const r of journal.records){
   const fact=byDraw.get(r.draw);
   if(fact && fact.column && !r.result){
     r.result={winner:fact.column,source:'official',A:r.five.A.includes(fact.column),B:r.five.B.includes(fact.column),V:r.five.V.includes(fact.column),G:r.five.G.includes(fact.column),group:r.b5Group?r.mainColumns.includes(fact.column):null};
+    r.result.forecast=(r.forecast?r.forecast.columns:r.five[PRIMARY]).includes(fact.column);
     r.settledAt=now.toISOString();settled++;
   }
 }
@@ -46,6 +53,8 @@ const predicted=B5.predictNext(H);
 const target=predicted.target;
 if(target.draw!==latest.draw+1) fail('target draw mismatch');
 for(const [name,five] of Object.entries(predicted.five))if(five.length!==5||new Set(five).size!==5)fail('bad five '+name);
+exactFive(predicted.five[PRIMARY], PRIMARY);
+const primary=predicted.five[PRIMARY].slice();
 const targetUtc=drawTimeUtc(target.date,target.time);
 const validFuture=now.getTime()<targetUtc;
 if(!known.has(target.draw)&&validFuture){
@@ -54,7 +63,9 @@ if(!known.has(target.draw)&&validFuture){
     engine:B5.VERSION,signal:predicted.signal,b5Group:predicted.b5Group,
     b5Index:predicted.b5Index,maxVotes:predicted.maxVotes,uniqueLeader:predicted.uniqueLeader,
     votes:predicted.votes,mainColumns:predicted.mainColumns,
-    groups:predicted.groups,five:predicted.five,control:[1,2,3,4,5],
+    groups:predicted.groups,five:predicted.five,
+    forecast:{variant:PRIMARY,columns:primary,main:primary.filter(c=>predicted.mainColumns.includes(c)),extra:primary.filter(c=>!predicted.mainColumns.includes(c))},
+    control:[1,2,3,4,5],
     result:null
   });created++;
 } else if(!known.has(target.draw)) {
