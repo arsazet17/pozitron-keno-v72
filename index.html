@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-build" content="a4a0275f48e2">
+<meta name="app-build" content="476b108d2fb3">
 <title>ПОЗИТРОН КЕНО v7.2.8</title>
 <link rel="manifest" href="manifest.webmanifest">
 
@@ -912,7 +912,7 @@ load();render();auto();setTimeout(update,800);
 })();
 </script>
 <script src="virtus-b5-module.js?v=frozen-20261011"></script>
-<script src="sprint-marathon.js?v=b5-toggle-fix-20261012"></script>
+<script src="sprint-marathon.js?v=c2bf50ba79aa"></script>
 <script src="max-retro.js?v=60cf4df7bd49"></script>
 <script src="next-draw-banner.js?v=8b0b10f3b11d"></script>
 
@@ -920,7 +920,7 @@ load();render();auto();setTimeout(update,800);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=b5-toggle-fix-20261012', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=476b108d2fb3', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });
