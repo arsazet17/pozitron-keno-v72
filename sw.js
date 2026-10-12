@@ -1,4 +1,4 @@
-const CACHE='pozitron-v72-shell-f2eac75f1a43';
+const CACHE='pozitron-v72-shell-3b84194644fe';
 const SHELL=[
  './','./index.html','./manifest.webmanifest',
  './sprint-marathon.js','./max-retro.js','./next-draw-banner.js',
@@ -13,7 +13,7 @@ self.addEventListener('activate',event=>event.waitUntil(
 self.addEventListener('fetch',event=>{
  if(event.request.method!=='GET')return;
  const url=new URL(event.request.url);
- if(url.pathname.endsWith('/keno-history.json')||url.pathname.endsWith('/keno-auto.json')){
+ if(url.pathname.endsWith('/keno-history.json')||url.pathname.endsWith('/keno-auto.json')||url.pathname.endsWith('/b5-journal.json')){
    event.respondWith(fetch(new Request(event.request,{cache:'no-store'})));return;
  }
  if(url.origin!==self.location.origin)return;
