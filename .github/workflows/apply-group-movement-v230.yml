@@ -1,13 +1,12 @@
-name: KENO v7.2.4 · Group Movement 2.3
+name: '[ОТКЛЮЧЕНО] KENO v7.2.4 · Group Movement 2.3'
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - apply-group-movement-v230.cjs
-      - .github/workflows/apply-group-movement-v230.yml
+    inputs:
+      confirm:
+        description: 'Type RESTORE-LEGACY to run the obsolete installer'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,6 +17,7 @@ concurrency:
 
 jobs:
   apply:
+    if: github.event.inputs.confirm == 'RESTORE-LEGACY'
     runs-on: ubuntu-latest
     timeout-minutes: 8
 
