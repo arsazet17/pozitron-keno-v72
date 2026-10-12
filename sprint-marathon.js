@@ -13,6 +13,7 @@ function wilson(h,n){if(!n)return '—';const z=1.96,p=h/n,q=z*z,d=1+q/n,c=(p+q/
 function stat(done,get){const n=done.length,h=done.filter(get).length;let run=0,mx=0;done.forEach(r=>{run=get(r)?0:run+1;mx=Math.max(mx,run)});return{n,h,miss:n-h,rate:n?(100*h/n).toFixed(1)+'%':'—',ci:wilson(h,n),excess:(h-n/2).toFixed(1),z:n?((h-n/2)/Math.sqrt(n/4)).toFixed(2):'—',mx}}
 function render(){
  const box=$('sprintMarathonResult');if(!box)return;
+ const sectionStates=Array.from(box.querySelectorAll('details'),x=>x.open);
  if(!data){box.textContent='Серверный журнал В5 ещё не создан. Прогноз задним числом не формируется.';return}
  const recs=data.records||[],next=recs.filter(r=>!r.result).at(-1);
  let h='<h3>В5 · пять столбцов (эксперимент)</h3><div class="small">Ровно пять столбцов на тираж. Заливка — столбцы основной группы В5, контур — дополнительные (дозаполнение по возрастанию номера).</div>';
@@ -35,6 +36,7 @@ function render(){
  const ct=stat(recs.filter(r=>r.result&&r.result.source==='official'&&valid(r.control)),r=>r.control.includes(r.result.winner));
  h+='<details><summary>🧪 Теневая проверка (это не прогноз)</summary><p>Эти пятёрки не показываются как прогноз. Они считаются только для независимой проверки после 800 тиражей.</p><p>'+sh.join(' · ')+' · контроль 1–5: '+ct.h+'/'+ct.n+' ('+ct.rate+')</p></details>';
  box.innerHTML=h;
+ Array.from(box.querySelectorAll('details')).forEach((x,i)=>{if(i<sectionStates.length)x.open=sectionStates[i]});
 }
 async function refresh(){try{const r=await fetch('b5-journal.json?fresh='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(r.status);data=await r.json()}catch(e){console.warn('B5 journal',e)}render()}
 function start(){for(const id of ['sprintBtn','marathonBtn']){const b=$(id);if(b)b.onclick=()=>{$('sprintMarathonPanel')?.classList.add('show');render()}}refresh();setInterval(refresh,60000)}
