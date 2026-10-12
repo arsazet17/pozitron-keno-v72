@@ -1,7 +1,12 @@
-name: INSTALL · KENO 7.2 Group Storage
+name: '[ОТКЛЮЧЕНО] INSTALL · KENO 7.2 Group Storage'
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RESTORE-LEGACY to run the obsolete installer'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +17,7 @@ concurrency:
 
 jobs:
   install:
+    if: github.event.inputs.confirm == 'RESTORE-LEGACY'
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
