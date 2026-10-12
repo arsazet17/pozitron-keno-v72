@@ -117,9 +117,18 @@ jobs:
           fi
 
       - name: B5 · зафиксировать прогноз до следующего тиража и проверить факты
+        continue-on-error: true
         run: |
           set -euo pipefail
-          node b5-journal.cjs
+          backup=$(mktemp)
+          existed=0
+          if [ -f b5-journal.json ]; then cp b5-journal.json "$backup"; existed=1; fi
+          if ! node b5-journal.cjs; then
+            echo '::error title=B5 journal::B5 failed; official history update continues'
+            if [ "$existed" -eq 1 ]; then cp "$backup" b5-journal.json; else rm -f b5-journal.json; fi
+            exit 1
+          fi
+          rm -f "$backup"
 
       - name: Пересчитать Спринт / Марафон при новом тираже или новой версии
         run: |
