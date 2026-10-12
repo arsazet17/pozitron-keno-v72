@@ -54,6 +54,6 @@ function render(force){
  if(typeof window!=='undefined'&&Math.abs(window.scrollY-scrollY)>1)window.scrollTo(0,scrollY);
 }
 async function refresh(){try{const r=await fetch('b5-journal.json?fresh='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(r.status);data=await r.json()}catch(e){console.warn('B5 journal',e)}render()}
-function start(){for(const id of ['sprintBtn','marathonBtn']){const b=$(id);if(b)b.onclick=()=>{$('sprintMarathonPanel')?.classList.add('show');render()}}refresh();setInterval(refresh,60000)}
+function start(){for(const id of ['sprintBtn','marathonBtn']){const b=$(id);if(b)b.onclick=()=>{const panel=$('sprintMarathonPanel');if(!panel)return;const isOpen=panel.classList.toggle('show');b.setAttribute('aria-expanded',String(isOpen));const other=$(id==='sprintBtn'?'marathonBtn':'sprintBtn');if(other)other.setAttribute('aria-expanded',String(isOpen));if(isOpen)render()}}refresh();setInterval(refresh,60000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
