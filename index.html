@@ -69,6 +69,7 @@ button,input,select{font:inherit}
 .main-tools .sm-split{display:grid;grid-template-columns:1fr 1fr;gap:6px;min-width:0}
 .main-tools .sm-split .tool{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;font-size:28px;padding:8px 3px;white-space:nowrap}
 .tool{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:9px 3px;font-size:12px;font-weight:800}
+.chain-gr{font-size:.55em;font-weight:700;color:#a9c9e8;vertical-align:middle;white-space:nowrap}
 .panel{display:none}.panel.show{display:block}
 .row{background:#101f33;border:1px solid #263e5b;border-radius:9px;padding:9px;margin-top:6px;font-size:13px}
 .analog-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:8px}
@@ -447,7 +448,7 @@ function renderChains(){
  day.forEach(d=>{if(cur.length&&minutes(d.time)-minutes(cur.at(-1).time)>30){blocks.push(cur);cur=[]}cur.push(d);if(cur.length===5){blocks.push(cur);cur=[]}});
  if(cur.length)blocks.push(cur);
  $('chains').innerHTML=blocks.map((b,i)=>{
-  const seq=b.map(d=>analysis(d).winner).join('–'),next=blocks[i+1],gap=next?minutes(next[0].time)-minutes(b.at(-1).time):0;
+  const seq=b.map(d=>{const winner=analysis(d).winner;const prev=draws.find(p=>p.draw===d.draw-1);if(!prev)return String(winner);const count=prev.balls.filter(n=>column(n)===winner).length;return winner+'<span class="chain-gr">(гр'+Math.min(count,4)+(count>=4?'+':'')+')</span>'}).join('–'),next=blocks[i+1],gap=next?minutes(next[0].time)-minutes(b.at(-1).time):0;
   return `<div class="chain"><div class="chain-top">${b[0].draw}–${b.at(-1).draw} | ${showDate(b[0].date)} | ${normTime(b[0].time)}–${normTime(b.at(-1).time)}</div><div class="seq">${seq}</div>${b.length===5&&gap>30?'<div class="break">☕ перерыв 1 час</div>':b.length<5?'<div class="open">Открытая цепочка</div>':''}</div>`
  }).join('')
 }
