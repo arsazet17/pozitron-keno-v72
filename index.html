@@ -887,8 +887,32 @@ if(forecastHistoryToggle&&forecastHistoryContent){
 }
 load();render();auto();setTimeout(update,800);
 </script>
+<script id="b5-panel-safe-toggle">
+/* Independent of journal loading and the main application script. */
+(function(){
+  function toggle(event){
+    const button=event.target.closest('#sprintBtn, #marathonBtn');
+    if(!button)return;
+    const panel=document.getElementById('sprintMarathonPanel');
+    if(!panel)return;
+    event.preventDefault();
+    const opened=panel.classList.toggle('show');
+    panel.style.display=opened?'block':'none';
+    for(const id of ['sprintBtn','marathonBtn']){
+      const b=document.getElementById(id);
+      if(b)b.setAttribute('aria-expanded',String(opened));
+    }
+    if(opened&&panel.dataset.openedOnce!=='yes'){
+      panel.dataset.openedOnce='yes';
+      const result=document.getElementById('sprintMarathonResult');
+      if(result&&!result.textContent.trim())result.textContent='Загрузка журнала B5…';
+    }
+  }
+  document.addEventListener('click',toggle,true);
+})();
+</script>
 <script src="virtus-b5-module.js?v=frozen-20261011"></script>
-<script src="sprint-marathon.js?v=bdc2c6b447ed"></script>
+<script src="sprint-marathon.js?v=b5-toggle-fix-20261012"></script>
 <script src="max-retro.js?v=60cf4df7bd49"></script>
 <script src="next-draw-banner.js?v=8b0b10f3b11d"></script>
 
@@ -896,7 +920,7 @@ load();render();auto();setTimeout(update,800);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=a4a0275f48e2', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=b5-toggle-fix-20261012', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });
