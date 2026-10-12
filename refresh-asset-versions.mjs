@@ -48,6 +48,12 @@ const version=await appVersion();
 html=html.replace(/<title>ПОЗИТРОН КЕНО v7\.2(?:\.\d+)?<\/title>/,`<title>ПОЗИТРОН КЕНО v${version}</title>`);
 html=html.replace(/(<span[^>]*id=["']appVersionBadge["'][^>]*>)[^<]*(<\/span>)/i,`$1v${version}$2`);
 html=html.replace(/\s*<div class="sub">сборка <span id="appBuildBadge">[^<]*<\/span><\/div>\s*/i,'\n');
+// Единая версия во всех видимых строках статуса (текст и вёрстка не меняются).
+html=html.replace(/(<div id="status" class="sub">)v7\.2(?:\.\d+)?(?= ·)/,`$1v${version}`);
+html=html.replace(/(`)v7\.2(?:\.\d+)?( · база: )/g,`$1v${version}$2`);
+html=html.replace(/('Версия )v7\.2(?:\.\d+)?( · база: 0')/g,`$1v${version}$2`);
+html=html.replace(/(<b>)v7\.2(?:\.\d+)?(:<\/b> переходы)/,`$1v${version}$2`);
+html=html.replace(/(Версия )v7\.2(?:\.\d+)?(: основной упор)/,`$1v${version}$2`);
 
 for(const asset of ['sprint-marathon.js','max-retro.js','next-draw-banner.js']){
   if(!(await exists(asset)))continue;
@@ -105,7 +111,7 @@ self.addEventListener('activate',event=>event.waitUntil(
 self.addEventListener('fetch',event=>{
  if(event.request.method!=='GET')return;
  const url=new URL(event.request.url);
- if(url.pathname.endsWith('/keno-history.json')||url.pathname.endsWith('/keno-auto.json')){
+ if(url.pathname.endsWith('/keno-history.json')||url.pathname.endsWith('/keno-auto.json')||url.pathname.endsWith('/b5-journal.json')){
    event.respondWith(fetch(new Request(event.request,{cache:'no-store'})));return;
  }
  if(url.origin!==self.location.origin)return;
