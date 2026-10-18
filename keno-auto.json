@@ -3,125 +3,328 @@
   "modelVersion": "screen-sm-2.3.1-group45",
   "algorithmVersion": "2.3.1-group45",
   "source": "Официальный Столото · OAuth · тройная проверка",
-  "updatedAt": "2026-10-18T04:42:27.530Z",
-  "latestDraw": 329742,
+  "updatedAt": "2026-10-18T05:12:28.188Z",
+  "latestDraw": 329743,
   "latestDate": "18.10.26",
-  "latestTime": "07:32",
-  "drawsStored": 35161,
+  "latestTime": "08:02",
+  "drawsStored": 35162,
   "current": {
     "sprint": {
       "modelVersion": "screen-sm-2.3.1-group45",
       "algorithmVersion": "2.3.1-group45",
       "type": "sprint",
-      "window": 7,
+      "window": 8,
       "columns": [
-        1,
         7,
         4,
+        6,
+        2
+      ],
+      "rows": [
+        {
+          "col": 7,
+          "state": 2,
+          "score": 17.590463592237818,
+          "reasons": [
+            "короткий горизонт 12–30 тир.",
+            "переход 16%",
+            "режим 2 — малый вес",
+            "движение групп: устойчивого сигнала нет"
+          ],
+          "regime": 0.3472156234817596,
+          "perColumnRegime": 0.11573854116058653,
+          "activity": 0.20916666666666667,
+          "transition": 0.15789473684210525,
+          "momentum": 0.5,
+          "stability": 0.9666666666666667,
+          "baseScore": 17.590397581646336,
+          "movementPoints": 0,
+          "movementSignals": []
+        },
+        {
+          "col": 4,
+          "state": 3,
+          "score": 13.676465909187353,
+          "reasons": [
+            "короткий горизонт 12–30 тир.",
+            "переход 13%",
+            "режим 3 — малый вес",
+            "движение групп: устойчивого сигнала нет"
+          ],
+          "regime": 0.22143187711920312,
+          "perColumnRegime": 0.11071593855960156,
+          "activity": 0.17833333333333334,
+          "transition": 0.13157894736842105,
+          "momentum": -0.5,
+          "stability": 0.8666666666666667,
+          "baseScore": 13.676398280259079,
+          "movementPoints": 0,
+          "movementSignals": []
+        },
+        {
+          "col": 6,
+          "state": 4,
+          "score": 10.545977919244168,
+          "reasons": [
+            "короткий горизонт 12–30 тир.",
+            "переход 8%",
+            "режим 4+ — малый вес",
+            "движение групп -0.17 · 3→2→4+ 9.2% N2537; 4+ · соседи 2/2 10.6% N3729"
+          ],
+          "regime": 0.10320141473432116,
+          "perColumnRegime": 0.10320141473432116,
+          "activity": 0.14333333333333334,
+          "transition": 0.07894736842105263,
+          "momentum": -0.25,
+          "stability": 0.5666666666666667,
+          "baseScore": 10.720434520671503,
+          "movementPoints": -0.1745061736213319,
+          "movementSignals": [
+            {
+              "feature": "p3",
+              "key": "3>2>4",
+              "n": 2537,
+              "rate": 0.09184075679936933,
+              "posterior": 0.0927035600986958,
+              "weight": 0.25,
+              "effect": -0.09120549876630249,
+              "label": "3→2→4+"
+            },
+            {
+              "feature": "nbr",
+              "key": "4|2|2",
+              "n": 3729,
+              "rate": 0.10592652185572539,
+              "posterior": 0.10541799460652121,
+              "weight": 0.12,
+              "effect": 0.03250796763912722,
+              "label": "4+ · соседи 2/2"
+            }
+          ]
+        },
+        {
+          "col": 2,
+          "state": 1,
+          "score": 7.954462972051849,
+          "reasons": [
+            "короткий горизонт 12–30 тир.",
+            "переход 5%",
+            "режим 1 — малый вес",
+            "движение групп: устойчивого сигнала нет"
+          ],
+          "regime": 0.32815108466471615,
+          "perColumnRegime": 0.08203777116617904,
+          "activity": 0.08916666666666667,
+          "transition": 0.05263157894736842,
+          "momentum": 0.5,
+          "stability": 0.7333333333333333,
+          "baseScore": 7.954409394345026,
+          "movementPoints": 0,
+          "movementSignals": []
+        }
+      ],
+      "groupForecast": {
+        "topState": 2,
+        "topGroup": "2",
+        "orderStates": [
+          2,
+          1,
+          3,
+          4
+        ],
+        "orderGroups": [
+          "2",
+          "1",
+          "3",
+          "4+"
+        ],
+        "probabilities": {
+          "0": 0,
+          "1": 0.328151,
+          "2": 0.347216,
+          "3": 0.221432,
+          "4+": 0.103201
+        },
+        "available": {
+          "0": [],
+          "1": [
+            2,
+            3,
+            9,
+            10
+          ],
+          "2": [
+            1,
+            5,
+            7
+          ],
+          "3": [
+            4,
+            8
+          ],
+          "4+": [
+            6
+          ]
+        },
+        "selectedStates": [
+          2,
+          3,
+          4,
+          1
+        ],
+        "selectedGroups": [
+          "2",
+          "3",
+          "4+",
+          "1"
+        ],
+        "slots": {
+          "0": 0,
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "4+": 1
+        }
+      },
+      "signal": "сильный",
+      "signalScore": 1,
+      "exact": 26,
+      "near": 51738,
+      "switchCases": 3089
+    },
+    "marathon": {
+      "modelVersion": "screen-sm-2.3.1-group45",
+      "algorithmVersion": "2.3.1-group45",
+      "type": "marathon",
+      "window": 23,
+      "columns": [
+        4,
+        7,
+        10,
         6
       ],
       "rows": [
         {
-          "col": 1,
-          "state": 1,
-          "score": 16.81527748608427,
+          "col": 4,
+          "state": 3,
+          "score": 11.622340494630352,
           "reasons": [
-            "короткий горизонт 12–30 тир.",
-            "переход 19%",
-            "режим 1 — малый вес",
+            "длинный горизонт 80–240 тир.",
+            "переход 11%",
+            "режим 3 — малый вес",
             "движение групп: устойчивого сигнала нет"
           ],
-          "regime": 0.31512333666333675,
-          "perColumnRegime": 0.10504111222111225,
-          "activity": 0.19,
-          "transition": 0.1891891891891892,
-          "momentum": 0.25,
-          "stability": 0.9,
-          "baseScore": 16.815223076383077,
+          "regime": 0.22143187711920312,
+          "perColumnRegime": 0.11071593855960156,
+          "activity": 0.10500000000000001,
+          "transition": 0.10843373493975904,
+          "momentum": -0.5,
+          "stability": 0.8666666666666667,
+          "baseScore": 11.62225439159319,
           "movementPoints": 0,
           "movementSignals": []
         },
         {
           "col": 7,
           "state": 2,
-          "score": 14.080897962050487,
+          "score": 11.507805050087429,
           "reasons": [
-            "короткий горизонт 12–30 тир.",
-            "переход 8%",
+            "длинный горизонт 80–240 тир.",
+            "переход 14%",
             "режим 2 — малый вес",
-            "движение групп -0.30 · 0→2→3→2 8.5% N757"
+            "движение групп: устойчивого сигнала нет"
           ],
-          "regime": 0.4085957416184716,
-          "perColumnRegime": 0.1021489354046179,
-          "activity": 0.20916666666666667,
-          "transition": 0.08108108108108109,
-          "momentum": -0.25,
+          "regime": 0.3472156234817596,
+          "perColumnRegime": 0.11573854116058653,
+          "activity": 0.085625,
+          "transition": 0.14457831325301204,
+          "momentum": 0.5,
           "stability": 0.9666666666666667,
-          "baseScore": 14.38198091854911,
-          "movementPoints": -0.3010966515572455,
+          "baseScore": 11.507758970863174,
+          "movementPoints": 0,
+          "movementSignals": []
+        },
+        {
+          "col": 10,
+          "state": 1,
+          "score": 11.09114468198772,
+          "reasons": [
+            "длинный горизонт 80–240 тир.",
+            "переход 8%",
+            "режим 1 — малый вес",
+            "движение групп -0.34 · 2→2→3→1 9.1% N2104; 2→3→1 9.4% N6561"
+          ],
+          "regime": 0.32815108466471615,
+          "perColumnRegime": 0.08203777116617904,
+          "activity": 0.12062500000000001,
+          "transition": 0.08433734939759036,
+          "momentum": 0.5,
+          "stability": 0.7,
+          "baseScore": 11.434435843782703,
+          "movementPoints": -0.34333412308476463,
           "movementSignals": [
             {
               "feature": "p4",
-              "key": "0>2>3>2",
-              "n": 757,
-              "rate": 0.0845442536327609,
-              "posterior": 0.08802456499488229,
-              "weight": 0.2,
-              "effect": -0.11975435005117718,
-              "label": "0→2→3→2"
-            }
-          ]
-        },
-        {
-          "col": 4,
-          "state": 3,
-          "score": 12.330318184570354,
-          "reasons": [
-            "короткий горизонт 12–30 тир.",
-            "переход 8%",
-            "режим 3 — малый вес",
-            "движение групп +0.14 · 2→3→2→1→3 12.2% N435"
-          ],
-          "regime": 0.27628092171819174,
-          "perColumnRegime": 0.09209364057273058,
-          "activity": 0.17833333333333334,
-          "transition": 0.08108108108108109,
-          "momentum": -0.5,
-          "stability": 0.7666666666666667,
-          "baseScore": 12.190484047233129,
-          "movementPoints": 0.13981881533101043,
-          "movementSignals": [
+              "key": "2>2>3>1",
+              "n": 2104,
+              "rate": 0.09125475285171103,
+              "posterior": 0.09208261617900172,
+              "weight": 0.25,
+              "effect": -0.09896729776247853,
+              "label": "2→2→3→1"
+            },
             {
-              "feature": "p5",
-              "key": "2>3>2>1>3",
-              "n": 435,
-              "rate": 0.12183908045977011,
-              "posterior": 0.11544715447154472,
-              "weight": 0.12,
-              "effect": 0.09268292682926826,
-              "label": "2→3→2→1→3"
+              "feature": "p3",
+              "key": "2>3>1",
+              "n": 6561,
+              "rate": 0.09434537418076512,
+              "posterior": 0.09459262498178109,
+              "weight": 0.18,
+              "effect": -0.048666375163970266,
+              "label": "2→3→1"
             }
           ]
         },
         {
           "col": 6,
-          "state": 2,
-          "score": 9.83964045643,
+          "state": 4,
+          "score": 10.038640600627026,
           "reasons": [
-            "короткий горизонт 12–30 тир.",
-            "переход 5%",
-            "режим 2 — малый вес",
-            "движение групп: устойчивого сигнала нет"
+            "длинный горизонт 80–240 тир.",
+            "переход 6%",
+            "режим 4+ — малый вес",
+            "движение групп -0.09 · 3→2→4+ 9.2% N2537; 4+ · соседи 2/2 10.6% N3729"
           ],
-          "regime": 0.4085957416184716,
-          "perColumnRegime": 0.1021489354046179,
-          "activity": 0.0775,
-          "transition": 0.05405405405405406,
-          "momentum": 2,
-          "stability": 0.4999999999999999,
-          "baseScore": 9.839638576206767,
-          "movementPoints": 0,
-          "movementSignals": []
+          "regime": 0.10320141473432116,
+          "perColumnRegime": 0.10320141473432116,
+          "activity": 0.111875,
+          "transition": 0.060240963855421686,
+          "momentum": -0.25,
+          "stability": 0.5666666666666667,
+          "baseScore": 10.13332635078004,
+          "movementPoints": -0.09474283277888733,
+          "movementSignals": [
+            {
+              "feature": "p3",
+              "key": "3>2>4",
+              "n": 2537,
+              "rate": 0.09184075679936933,
+              "posterior": 0.0927035600986958,
+              "weight": 0.18,
+              "effect": -0.06566795911173778,
+              "label": "3→2→4+"
+            },
+            {
+              "feature": "nbr",
+              "key": "4|2|2",
+              "n": 3729,
+              "rate": 0.10592652185572539,
+              "posterior": 0.10541799460652121,
+              "weight": 0.12,
+              "effect": 0.03250796763912722,
+              "label": "4+ · соседи 2/2"
+            }
+          ]
         }
       ],
       "groupForecast": {
@@ -130,451 +333,71 @@
         "orderStates": [
           2,
           1,
-          3
+          3,
+          4
         ],
         "orderGroups": [
           "2",
           "1",
-          "3"
+          "3",
+          "4+"
         ],
         "probabilities": {
           "0": 0,
-          "1": 0.315123,
-          "2": 0.408596,
-          "3": 0.276281,
-          "4+": 0
+          "1": 0.328151,
+          "2": 0.347216,
+          "3": 0.221432,
+          "4+": 0.103201
         },
         "available": {
           "0": [],
           "1": [
-            1,
-            5,
-            9
-          ],
-          "2": [
             2,
-            6,
-            7,
-            8
-          ],
-          "3": [
             3,
-            4,
+            9,
             10
           ],
-          "4+": []
+          "2": [
+            1,
+            5,
+            7
+          ],
+          "3": [
+            4,
+            8
+          ],
+          "4+": [
+            6
+          ]
         },
         "selectedStates": [
-          1,
-          2,
           3,
-          2
+          2,
+          1,
+          4
         ],
         "selectedGroups": [
-          "1",
+          "3",
           "2",
-          "3"
+          "1",
+          "4+"
         ],
         "slots": {
           "0": 0,
           "1": 1,
-          "2": 2,
+          "2": 1,
           "3": 1,
-          "4+": 0
+          "4+": 1
         }
       },
-      "signal": "сильный",
-      "signalScore": 0.927,
-      "exact": 15,
-      "near": 41918,
-      "switchCases": 3056
-    },
-    "marathon": {
-      "modelVersion": "screen-sm-2.3.1-group45",
-      "algorithmVersion": "2.3.1-group45",
-      "type": "marathon",
-      "window": 22,
-      "columns": [
-        10,
-        1,
-        4,
-        9
-      ],
-      "rows": [
-        {
-          "col": 10,
-          "state": 3,
-          "score": 12.466897439035245,
-          "reasons": [
-            "длинный горизонт 80–240 тир.",
-            "переход 10%",
-            "режим 3 — малый вес",
-            "движение групп +0.67 · 0→2→2→3 12.3% N722; 2→2→3 10.7% N8050"
-          ],
-          "regime": 0.27628092171819174,
-          "perColumnRegime": 0.09209364057273058,
-          "activity": 0.12062500000000001,
-          "transition": 0.1,
-          "momentum": -0.5,
-          "stability": 0.7,
-          "baseScore": 11.797968202863654,
-          "movementPoints": 0.6688385929962025,
-          "movementSignals": [
-            {
-              "feature": "p4",
-              "key": "0>2>2>3",
-              "n": 722,
-              "rate": 0.12326869806094183,
-              "posterior": 0.1178343949044586,
-              "weight": 0.25,
-              "effect": 0.22292993630573243,
-              "label": "0→2→2→3"
-            },
-            {
-              "feature": "p3",
-              "key": "2>2>3",
-              "n": 8050,
-              "rate": 0.10745341614906832,
-              "posterior": 0.10718562874251497,
-              "weight": 0.18,
-              "effect": 0.06467065868263469,
-              "label": "2→2→3"
-            }
-          ]
-        },
-        {
-          "col": 1,
-          "state": 1,
-          "score": 12.209156606150797,
-          "reasons": [
-            "длинный горизонт 80–240 тир.",
-            "переход 13%",
-            "режим 1 — малый вес",
-            "движение групп: устойчивого сигнала нет"
-          ],
-          "regime": 0.31512333666333675,
-          "perColumnRegime": 0.10504111222111225,
-          "activity": 0.10687500000000001,
-          "transition": 0.12857142857142856,
-          "momentum": 0.25,
-          "stability": 0.9,
-          "baseScore": 12.209134132534132,
-          "movementPoints": 0,
-          "movementSignals": []
-        },
-        {
-          "col": 4,
-          "state": 3,
-          "score": 12.02468607470374,
-          "reasons": [
-            "длинный горизонт 80–240 тир.",
-            "переход 10%",
-            "режим 3 — малый вес",
-            "движение групп +0.55 · 2→3→2→1→3 12.2% N435"
-          ],
-          "regime": 0.27628092171819174,
-          "perColumnRegime": 0.09209364057273058,
-          "activity": 0.111875,
-          "transition": 0.1,
-          "momentum": -0.5,
-          "stability": 0.7666666666666667,
-          "baseScore": 11.472968202863655,
-          "movementPoints": 0.5516840882694539,
-          "movementSignals": [
-            {
-              "feature": "p5",
-              "key": "2>3>2>1>3",
-              "n": 435,
-              "rate": 0.12183908045977011,
-              "posterior": 0.11544715447154472,
-              "weight": 0.25,
-              "effect": 0.19308943089430888,
-              "label": "2→3→2→1→3"
-            }
-          ]
-        },
-        {
-          "col": 9,
-          "state": 1,
-          "score": 11.550719161779488,
-          "reasons": [
-            "длинный горизонт 80–240 тир.",
-            "переход 13%",
-            "режим 1 — малый вес",
-            "движение групп -0.36 · 1→1→3→1 9% N1441; 1→3→1 9.4% N5341"
-          ],
-          "regime": 0.31512333666333675,
-          "perColumnRegime": 0.10504111222111225,
-          "activity": 0.12187500000000001,
-          "transition": 0.12857142857142856,
-          "momentum": -0.25,
-          "stability": 0.5,
-          "baseScore": 11.909134132534135,
-          "movementPoints": -0.3584515738300979,
-          "movementSignals": [
-            {
-              "feature": "p4",
-              "key": "1>1>3>1",
-              "n": 1441,
-              "rate": 0.09021512838306732,
-              "posterior": 0.09151113786875377,
-              "weight": 0.25,
-              "effect": -0.10611077664057794,
-              "label": "1→1→3→1"
-            },
-            {
-              "feature": "p3",
-              "key": "1>3>1",
-              "n": 5341,
-              "rate": 0.09436435124508519,
-              "posterior": 0.09466406665484843,
-              "weight": 0.18,
-              "effect": -0.04802340010636417,
-              "label": "1→3→1"
-            }
-          ]
-        }
-      ],
-      "groupForecast": {
-        "topState": 2,
-        "topGroup": "2",
-        "orderStates": [
-          2,
-          1,
-          3
-        ],
-        "orderGroups": [
-          "2",
-          "1",
-          "3"
-        ],
-        "probabilities": {
-          "0": 0,
-          "1": 0.315123,
-          "2": 0.408596,
-          "3": 0.276281,
-          "4+": 0
-        },
-        "available": {
-          "0": [],
-          "1": [
-            1,
-            5,
-            9
-          ],
-          "2": [
-            2,
-            6,
-            7,
-            8
-          ],
-          "3": [
-            3,
-            4,
-            10
-          ],
-          "4+": []
-        },
-        "selectedStates": [
-          3,
-          1,
-          3,
-          1
-        ],
-        "selectedGroups": [
-          "3",
-          "1"
-        ],
-        "slots": {
-          "0": 0,
-          "1": 2,
-          "2": 0,
-          "3": 2,
-          "4+": 0
-        }
-      },
-      "signal": "средний",
-      "signalScore": 0.454,
-      "exact": 15,
-      "near": 41918,
-      "switchCases": 3056
+      "signal": "слабый",
+      "signalScore": 0.114,
+      "exact": 26,
+      "near": 51738,
+      "switchCases": 3089
     }
   },
   "forecasts": [
-    {
-      "type": "sprint",
-      "modelVersion": "screen-sm-2.3.1-group45",
-      "algorithmVersion": "2.3.1-group45",
-      "afterDraw": 328741,
-      "targetDraw": 328742,
-      "createdAt": "2026-10-02T22:42:24.580Z",
-      "columns": [
-        6,
-        9,
-        7,
-        2
-      ],
-      "groupForecast": {
-        "topState": 2,
-        "topGroup": "2",
-        "orderStates": [
-          2,
-          1,
-          3,
-          4
-        ],
-        "orderGroups": [
-          "2",
-          "1",
-          "3",
-          "4+"
-        ],
-        "probabilities": {
-          "0": 0,
-          "1": 0.288543,
-          "2": 0.404387,
-          "3": 0.189252,
-          "4+": 0.117817
-        },
-        "available": {
-          "0": [],
-          "1": [
-            2,
-            4,
-            8
-          ],
-          "2": [
-            1,
-            3,
-            5,
-            6,
-            10
-          ],
-          "3": [
-            7
-          ],
-          "4+": [
-            9
-          ]
-        },
-        "selectedStates": [
-          2,
-          4,
-          3,
-          1
-        ],
-        "selectedGroups": [
-          "2",
-          "4+",
-          "3",
-          "1"
-        ],
-        "slots": {
-          "0": 0,
-          "1": 1,
-          "2": 1,
-          "3": 1,
-          "4+": 1
-        }
-      },
-      "checked": true,
-      "actualWinner": 4,
-      "place": 0,
-      "hit": false,
-      "first": false,
-      "actualGroupState": 1,
-      "actualGroup": "1",
-      "groupTopHit": false,
-      "groupCovered": true,
-      "checkedAt": "2026-10-02T23:12:22.543Z"
-    },
-    {
-      "type": "marathon",
-      "modelVersion": "screen-sm-2.3.1-group45",
-      "algorithmVersion": "2.3.1-group45",
-      "afterDraw": 328741,
-      "targetDraw": 328742,
-      "createdAt": "2026-10-02T22:42:24.580Z",
-      "columns": [
-        7,
-        9,
-        1,
-        4
-      ],
-      "groupForecast": {
-        "topState": 2,
-        "topGroup": "2",
-        "orderStates": [
-          2,
-          1,
-          3,
-          4
-        ],
-        "orderGroups": [
-          "2",
-          "1",
-          "3",
-          "4+"
-        ],
-        "probabilities": {
-          "0": 0,
-          "1": 0.288543,
-          "2": 0.404387,
-          "3": 0.189252,
-          "4+": 0.117817
-        },
-        "available": {
-          "0": [],
-          "1": [
-            2,
-            4,
-            8
-          ],
-          "2": [
-            1,
-            3,
-            5,
-            6,
-            10
-          ],
-          "3": [
-            7
-          ],
-          "4+": [
-            9
-          ]
-        },
-        "selectedStates": [
-          3,
-          4,
-          2,
-          1
-        ],
-        "selectedGroups": [
-          "3",
-          "4+",
-          "2",
-          "1"
-        ],
-        "slots": {
-          "0": 0,
-          "1": 1,
-          "2": 1,
-          "3": 1,
-          "4+": 1
-        }
-      },
-      "checked": true,
-      "actualWinner": 4,
-      "place": 4,
-      "hit": true,
-      "first": false,
-      "actualGroupState": 1,
-      "actualGroup": "1",
-      "groupTopHit": false,
-      "groupCovered": true,
-      "checkedAt": "2026-10-02T23:12:22.544Z"
-    },
     {
       "type": "sprint",
       "modelVersion": "screen-sm-2.3.1-group45",
@@ -175540,7 +175363,16 @@
           "4+": 0
         }
       },
-      "checked": false
+      "checked": true,
+      "actualWinner": 6,
+      "place": 4,
+      "hit": true,
+      "first": false,
+      "actualGroupState": 2,
+      "actualGroup": "2",
+      "groupTopHit": true,
+      "groupCovered": true,
+      "checkedAt": "2026-10-18T05:12:27.272Z"
     },
     {
       "type": "marathon",
@@ -175611,6 +175443,171 @@
           "2": 0,
           "3": 2,
           "4+": 0
+        }
+      },
+      "checked": true,
+      "actualWinner": 6,
+      "place": 0,
+      "hit": false,
+      "first": false,
+      "actualGroupState": 2,
+      "actualGroup": "2",
+      "groupTopHit": true,
+      "groupCovered": false,
+      "checkedAt": "2026-10-18T05:12:27.272Z"
+    },
+    {
+      "type": "sprint",
+      "modelVersion": "screen-sm-2.3.1-group45",
+      "algorithmVersion": "2.3.1-group45",
+      "afterDraw": 329743,
+      "targetDraw": 329744,
+      "createdAt": "2026-10-18T05:12:28.188Z",
+      "columns": [
+        7,
+        4,
+        6,
+        2
+      ],
+      "groupForecast": {
+        "topState": 2,
+        "topGroup": "2",
+        "orderStates": [
+          2,
+          1,
+          3,
+          4
+        ],
+        "orderGroups": [
+          "2",
+          "1",
+          "3",
+          "4+"
+        ],
+        "probabilities": {
+          "0": 0,
+          "1": 0.328151,
+          "2": 0.347216,
+          "3": 0.221432,
+          "4+": 0.103201
+        },
+        "available": {
+          "0": [],
+          "1": [
+            2,
+            3,
+            9,
+            10
+          ],
+          "2": [
+            1,
+            5,
+            7
+          ],
+          "3": [
+            4,
+            8
+          ],
+          "4+": [
+            6
+          ]
+        },
+        "selectedStates": [
+          2,
+          3,
+          4,
+          1
+        ],
+        "selectedGroups": [
+          "2",
+          "3",
+          "4+",
+          "1"
+        ],
+        "slots": {
+          "0": 0,
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "4+": 1
+        }
+      },
+      "checked": false
+    },
+    {
+      "type": "marathon",
+      "modelVersion": "screen-sm-2.3.1-group45",
+      "algorithmVersion": "2.3.1-group45",
+      "afterDraw": 329743,
+      "targetDraw": 329744,
+      "createdAt": "2026-10-18T05:12:28.188Z",
+      "columns": [
+        4,
+        7,
+        10,
+        6
+      ],
+      "groupForecast": {
+        "topState": 2,
+        "topGroup": "2",
+        "orderStates": [
+          2,
+          1,
+          3,
+          4
+        ],
+        "orderGroups": [
+          "2",
+          "1",
+          "3",
+          "4+"
+        ],
+        "probabilities": {
+          "0": 0,
+          "1": 0.328151,
+          "2": 0.347216,
+          "3": 0.221432,
+          "4+": 0.103201
+        },
+        "available": {
+          "0": [],
+          "1": [
+            2,
+            3,
+            9,
+            10
+          ],
+          "2": [
+            1,
+            5,
+            7
+          ],
+          "3": [
+            4,
+            8
+          ],
+          "4+": [
+            6
+          ]
+        },
+        "selectedStates": [
+          3,
+          2,
+          1,
+          4
+        ],
+        "selectedGroups": [
+          "3",
+          "2",
+          "1",
+          "4+"
+        ],
+        "slots": {
+          "0": 0,
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "4+": 1
         }
       },
       "checked": false
