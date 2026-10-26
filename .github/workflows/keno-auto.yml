@@ -40,40 +40,6 @@ jobs:
           git reset --hard origin/main
           echo "WORKING_SHA=$(git rev-parse HEAD)"
 
-      - name: Восстановить пропущенные факты из живой базы v6.3
-        run: |
-          set -euo pipefail
-          LAST=$(node -e "const x=require('./keno-history.json'); console.log(Math.max(...x.map(r=>Number(r.draw)||0)))")
-          echo "LOCAL_LAST=$LAST"
-          if [ "$LAST" -lt 327824 ]; then
-            echo "База v7.2 оборвана. Подмешиваю только недостающие факты из живой базы v6.3..."
-            curl -fL --retry 3 --retry-delay 2 \
-              https://raw.githubusercontent.com/arsazet17/arsazet17-pozitron-keno-v63/main/keno-history-v63.json \
-              -o /tmp/keno-history-v63.json
-            node <<'NODE'
-          const fs=require('fs');
-          const local=JSON.parse(fs.readFileSync('keno-history.json','utf8'));
-          const donor=JSON.parse(fs.readFileSync('/tmp/keno-history-v63.json','utf8'));
-          const byDraw=new Map(local.map(r=>[Number(r.draw),r]));
-          const before=Math.max(...byDraw.keys());
-          let added=0;
-          for(const r of donor){
-            const d=Number(r.draw);
-            if(!Number.isInteger(d)||d<=before||byDraw.has(d)) continue;
-            if(!Array.isArray(r.balls)||r.balls.length!==20) throw new Error(`v6.3: invalid balls at draw ${d}`);
-            byDraw.set(d,r); added++;
-          }
-          const merged=[...byDraw.values()].sort((a,b)=>Number(a.draw)-Number(b.draw));
-          const after=Math.max(...merged.map(r=>Number(r.draw)||0));
-          if(after<=before) throw new Error(`v6.3 recovery did not advance archive: ${before} -> ${after}`);
-          for(let d=before+1;d<=after;d++) if(!byDraw.has(d)) throw new Error(`Recovery gap remains at draw ${d}`);
-          fs.writeFileSync('keno-history.json',JSON.stringify(merged,null,2)+'\n');
-          console.log(`RECOVERY PASS: ${before} -> ${after}; added=${added}`);
-          NODE
-          else
-            echo "Recovery not needed"
-          fi
-
       - name: Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -91,7 +57,7 @@ jobs:
           npm install --no-save playwright@1.54.2
           npx playwright install --with-deps chromium
 
-      - name: Столото recovery tail30 · 3 проверки
+      - name: Столото · последние 30 тиражей · до 6 попыток
         env:
           STOLOTO_EMAIL: ${{ secrets.STOLOTO_EMAIL }}
           STOLOTO_PASSWORD: ${{ secrets.STOLOTO_PASSWORD }}
@@ -155,7 +121,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add keno-history.json keno-auto.json b5-journal.json
-          git commit -m "KENO v7.2 · recover facts from live v6.3 + Stoloto tail30"
+          git commit -m "KENO v7.2 · новые тиражи Столото"
 
           git fetch origin main
           git rebase origin/main

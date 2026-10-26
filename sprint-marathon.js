@@ -53,7 +53,15 @@ function render(force){
  Array.from(box.querySelectorAll('details')).forEach(x=>{x.open=first?x.dataset.key==='stats':opened.has(x.dataset.key)});
  if(typeof window!=='undefined'&&Math.abs(window.scrollY-scrollY)>1)window.scrollTo(0,scrollY);
 }
-async function refresh(){try{const r=await fetch('b5-journal.json?fresh='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(r.status);data=await r.json()}catch(e){console.warn('B5 journal',e)}render()}
-function start(){refresh();setInterval(refresh,60000)}
+/* v7.2.9: журнал В5 (1,6 МБ) скачивается только когда панель Спринт/Марафон открыта, а не каждую минуту в фоне. */
+let loading=false,lastLoad=0;
+function panelOpen(){const p=$('sprintMarathonPanel');return !!p&&p.classList.contains('show')}
+async function refresh(){if(loading)return;loading=true;lastLoad=Date.now();try{const r=await fetch('b5-journal.json?fresh='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(r.status);data=await r.json()}catch(e){console.warn('B5 journal',e)}finally{loading=false}render()}
+function tick(){if(panelOpen()&&!document.hidden&&Date.now()-lastLoad>=60000)refresh()}
+function start(){
+ document.addEventListener('click',e=>{if(e.target.closest('#sprintBtn, #marathonBtn'))setTimeout(()=>{if(panelOpen()&&(!data||Date.now()-lastLoad>=60000))refresh()},0)});
+ document.addEventListener('visibilitychange',tick);
+ setInterval(tick,15000);
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
