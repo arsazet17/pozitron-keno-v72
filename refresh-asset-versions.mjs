@@ -8,7 +8,7 @@ const MANIFEST='manifest.webmanifest';
 const SW='sw.js';
 const VERSION_FILE='app-version.json';
 
-const assets=['sprint-marathon.js','max-retro.js','next-draw-banner.js','keno-payouts-v1.json'];
+const assets=['max-retro.js','next-draw-banner.js','keno-payouts-v1.json'];
 
 async function exists(path){try{await fs.access(path);return true}catch{return false}}
 async function fileHash(path){
@@ -22,7 +22,7 @@ async function appVersion(){
 }
 function normalizeIndexForBuild(html){
   let x=html.replace(/<meta\s+name=["']app-build["']\s+content=["'][^"']*["']\s*\/?>/i,'<meta name="app-build" content="BUILD">');
-  for(const asset of ['sprint-marathon.js','max-retro.js','next-draw-banner.js']){
+  for(const asset of ['max-retro.js','next-draw-banner.js']){
     const name=escapeRegExp(asset);
     x=x.replace(new RegExp(`(<script\\b[^>]*\\bsrc=["']${name})(?:\\?v=[^"']*)?(["'][^>]*><\\/script>)`,'gi'),'$1?v=HASH$2');
   }
@@ -45,17 +45,17 @@ let html=await fs.readFile(INDEX,'utf8');
 const version=await appVersion();
 
 // Visible semantic version only.
-html=html.replace(/<title>ПОЗИТРОН КЕНО v7\.2(?:\.\d+)?<\/title>/,`<title>ПОЗИТРОН КЕНО v${version}</title>`);
+html=html.replace(/<title>ПОЗИТРОН КЕНО v7\.\d+(?:\.\d+)?<\/title>/,`<title>ПОЗИТРОН КЕНО v${version}</title>`);
 html=html.replace(/(<span[^>]*id=["']appVersionBadge["'][^>]*>)[^<]*(<\/span>)/i,`$1v${version}$2`);
 html=html.replace(/\s*<div class="sub">сборка <span id="appBuildBadge">[^<]*<\/span><\/div>\s*/i,'\n');
 // Единая версия во всех видимых строках статуса (текст и вёрстка не меняются).
-html=html.replace(/(<div id="status" class="sub">)v7\.2(?:\.\d+)?(?= ·)/,`$1v${version}`);
-html=html.replace(/(`)v7\.2(?:\.\d+)?( · база: )/g,`$1v${version}$2`);
-html=html.replace(/('Версия )v7\.2(?:\.\d+)?( · база: 0')/g,`$1v${version}$2`);
-html=html.replace(/(<b>)v7\.2(?:\.\d+)?(:<\/b> переходы)/,`$1v${version}$2`);
-html=html.replace(/(Версия )v7\.2(?:\.\d+)?(: основной упор)/,`$1v${version}$2`);
+html=html.replace(/(<div id="status" class="sub">)v7\.\d+(?:\.\d+)?(?= ·)/,`$1v${version}`);
+html=html.replace(/(`)v7\.\d+(?:\.\d+)?( · база: )/g,`$1v${version}$2`);
+html=html.replace(/('Версия )v7\.\d+(?:\.\d+)?( · база: 0')/g,`$1v${version}$2`);
+html=html.replace(/(<b>)v7\.\d+(?:\.\d+)?(:<\/b> переходы)/,`$1v${version}$2`);
+html=html.replace(/(Версия )v7\.\d+(?:\.\d+)?(: основной упор)/,`$1v${version}$2`);
 
-for(const asset of ['sprint-marathon.js','max-retro.js','next-draw-banner.js']){
+for(const asset of ['max-retro.js','next-draw-banner.js']){
   if(!(await exists(asset)))continue;
   const hash=await fileHash(asset),name=escapeRegExp(asset);
   html=html.replace(new RegExp(`(<script\\b[^>]*\\bsrc=["']${name})(?:\\?v=[^"']*)?(["'][^>]*><\\/script>)`,'gi'),`$1?v=${hash}$2`);
@@ -99,7 +99,7 @@ await fs.writeFile(MANIFEST,JSON.stringify(manifest,null,2)+'\n','utf8');
 const sw=`const CACHE='pozitron-v72-shell-${build}';
 const SHELL=[
  './','./index.html','./manifest.webmanifest',
- './sprint-marathon.js','./max-retro.js','./next-draw-banner.js',
+ './max-retro.js','./next-draw-banner.js',
  './keno-payouts-v1.json','./icon-v72.png'
 ];
 self.addEventListener('install',event=>event.waitUntil(
@@ -111,7 +111,7 @@ self.addEventListener('activate',event=>event.waitUntil(
 self.addEventListener('fetch',event=>{
  if(event.request.method!=='GET')return;
  const url=new URL(event.request.url);
- if(url.pathname.endsWith('/keno-history.json')||url.pathname.endsWith('/keno-auto.json')||url.pathname.endsWith('/b5-journal.json')){
+ if(url.pathname.endsWith('/keno-history.json')){
    event.respondWith(fetch(new Request(event.request,{cache:'no-store'})));return;
  }
  if(url.origin!==self.location.origin)return;
