@@ -1,8 +1,10 @@
 'use strict';
 /*
   ПОЗИТРОН КЕНО · Матрица групп (этап 1)
-  Группа столба в тираже = сколько чисел этого тиража попало в столб: ГР0, ГР1, ГР2, ГР3, ГР4+.
-  Строка — тираж, колонки — группы. В клетке — столбы группы или (по нажатию) её числа.
+  Группа столба для тиража N = сколько чисел было в этом столбе в ПРЕДЫДУЩЕМ тираже N−1
+  (так же, как «(гр…)» в цепочках столбов): ГР0, ГР1, ГР2, ГР3, ГР4+.
+  Строка — тираж N, колонки — группы. В клетке — столбы группы или (по нажатию)
+  числа тиража N, которые выпали в этих столбах.
   Нажатие на группу: столбы → числа → только чёт → только нечёт → столбы.
   Нажатие на число отмечает его во всей матрице.
 */
@@ -24,23 +26,27 @@
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (_) {}
   }
 
-  // У ГР0 чисел нет, поэтому у неё только столбы / чёт / нечёт
-  const modesFor = g => g === 0 ? ['cols', 'even', 'odd'] : MODES;
+  const modesFor = () => MODES;
   function modeOf(g) { const m = state.modes[g] || 'cols'; return modesFor(g).includes(m) ? m : 'cols'; }
   function list() { try { return Array.isArray(draws) ? draws : []; } catch (_) { return []; } }
 
-  // Разбивка тиража на группы: { g: { cols:[...], nums:[...] } }
+  // Разбивка тиража d на группы по предыдущему тиражу prev: { g: { cols:[...], nums:[...] } }
   const cache = new WeakMap();
-  function groupsOf(d) {
+  function byColumn(d) {
+    const out = Array.from({ length: 11 }, () => []);
+    for (const n of d.balls) out[col(Number(n))].push(Number(n));
+    return out;
+  }
+  function groupsOf(d, prev) {
     if (cache.has(d)) return cache.get(d);
-    const byCol = Array.from({ length: 11 }, () => []);
-    for (const n of d.balls) byCol[col(Number(n))].push(Number(n));
     const out = {};
     for (const g of GROUPS) out[g] = { cols: [], nums: [] };
+    if (!prev) return out;
+    const before = byColumn(prev), now = byColumn(d);
     for (let c = 1; c <= 10; c++) {
-      const g = Math.min(4, byCol[c].length);
+      const g = Math.min(4, before[c].length);
       out[g].cols.push(c);
-      out[g].nums.push(...byCol[c]);
+      out[g].nums.push(...now[c]);
     }
     for (const g of GROUPS) out[g].nums.sort((a, b) => a - b);
     cache.set(d, out);
@@ -51,12 +57,12 @@
     return Number(d.column) || 0;
   }
 
-  function cellHtml(d, g) {
-    const grp = groupsOf(d)[g], mode = modeOf(g), win = winnerOf(d);
+  function cellHtml(d, prev, g) {
+    const grp = groupsOf(d, prev)[g], mode = modeOf(g), win = winnerOf(d);
     const hasWin = grp.cols.includes(win);
     const parity = x => mode === 'even' ? x % 2 === 0 : mode === 'odd' ? x % 2 === 1 : true;
     let inner = '';
-    if (mode === 'cols' || g === 0) {
+    if (mode === 'cols') {
       inner = grp.cols.filter(parity).map(c => `<span class="gm-c${c === win ? ' gm-win' : ''}">${c}</span>`).join('');
     } else {
       inner = grp.nums.filter(parity).map(n => `<span class="gm-n${marks.has(n) ? ' gm-mark' : ''}${col(n) === win ? ' gm-winn' : ''}" data-gm-num="${n}">${pad(n)}</span>`).join('');
@@ -76,9 +82,13 @@
     const panel = $('groupMatrixPanel');
     if (!panel || !panel.classList.contains('show')) return;
     const all = list();
-    const shown = all.slice(-state.count);
-    const rows = (state.reverse ? [...shown].reverse() : shown).map(d =>
-      `<tr><td class="gm-draw">№${String(d.draw).slice(-3)}</td>${GROUPS.map(g => cellHtml(d, g)).join('')}<td class="gm-time">${String(d.time || '').slice(0, 5)}</td></tr>`
+    const start = Math.max(0, all.length - state.count);
+    const shown = all.slice(start).map((d, k) => {
+      const p = all[start + k - 1];
+      return [d, p && Number(p.draw) === Number(d.draw) - 1 ? p : null];
+    });
+    const rows = (state.reverse ? [...shown].reverse() : shown).map(([d, prev]) =>
+      `<tr><td class="gm-draw">№${String(d.draw).slice(-3)}</td>${GROUPS.map(g => cellHtml(d, prev, g)).join('')}<td class="gm-time">${String(d.time || '').slice(0, 5)}</td></tr>`
     ).join('');
     const scroller = panel.querySelector('.gm-scroll');
     const atEnd = !scroller || scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 40;
@@ -92,7 +102,7 @@
         <button type="button" class="gm-btn" data-gm-action="all-cols">Все столбы</button>
         ${marks.size ? `<button type="button" class="gm-btn gm-clear" data-gm-action="clear">✕ отметки (${marks.size})</button>` : ''}
       </div>
-      <div class="gm-note">Группа — сколько чисел выпало в столбе: ГР1 — одно, ГР2 — два… ГР0 — пусто. Нажми на группу: столбы → числа → чёт → нечёт. Нажми на число — оно отметится синим во всех тиражах. Жёлтая рамка — выпавшая группа, зелёным — выигравший столб.</div>
+      <div class="gm-note">Группа столба — сколько чисел было в нём в <b>предыдущем</b> тираже (как «гр» в цепочках): ГР0 — ни одного, ГР1 — одно, ГР2 — два… Жёлтая рамка — из какой группы вышел выигравший столб, зелёным — сам столб. Нажми на группу: столбы → числа этого тиража → чёт → нечёт. Нажми на число — отметится синим везде.</div>
       <div class="gm-scroll"><table class="gm-table"><thead>${headHtml()}</thead><tbody>${rows}</tbody></table></div>`;
     const sc = panel.querySelector('.gm-scroll');
     if (sc) sc.scrollTop = state.reverse ? (atEnd ? 0 : prevTop) : (atEnd ? sc.scrollHeight : prevTop);
@@ -129,7 +139,7 @@
     if (!act) return;
     const a = act.dataset.gmAction;
     if (a === 'reverse') state.reverse = !state.reverse;
-    if (a === 'all-nums') GROUPS.forEach(g => { if (g !== 0) state.modes[g] = 'nums'; });
+    if (a === 'all-nums') GROUPS.forEach(g => { state.modes[g] = 'nums'; });
     if (a === 'all-cols') GROUPS.forEach(g => { state.modes[g] = 'cols'; });
     if (a === 'clear') marks.clear();
     save(); render();

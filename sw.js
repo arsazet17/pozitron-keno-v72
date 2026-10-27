@@ -1,4 +1,4 @@
-const CACHE='pozitron-v72-shell-66d6cce3471b';
+const CACHE='pozitron-v72-shell-b7ef98f26c6d';
 const SHELL=[
  './','./index.html','./manifest.webmanifest',
  './group-matrix.js','./next-draw-banner.js',
