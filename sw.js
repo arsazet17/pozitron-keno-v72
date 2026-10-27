@@ -1,8 +1,8 @@
-const CACHE='pozitron-v72-shell-480e597fe1bf';
+const CACHE='pozitron-v72-shell-f60c95790c49';
 const SHELL=[
  './','./index.html','./manifest.webmanifest',
- './max-retro.js','./next-draw-banner.js',
- './keno-payouts-v1.json','./icon-v72.png'
+ './next-draw-banner.js',
+ './icon-v72.png'
 ];
 self.addEventListener('install',event=>event.waitUntil(
  caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())

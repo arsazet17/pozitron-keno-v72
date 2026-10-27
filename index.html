@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-build" content="480e597fe1bf">
-<title>ПОЗИТРОН КЕНО v7.3.0</title>
+<meta name="app-build" content="f60c95790c49">
+<title>ПОЗИТРОН КЕНО v7.4.0</title>
 <link rel="manifest" href="manifest.webmanifest">
 
 <link rel="icon" type="image/svg+xml" href="icon-v72.png">
@@ -85,7 +85,7 @@ button,input,select{font:inherit}
 input,select{width:100%;padding:9px;background:#0a1422;color:var(--text);border:1px solid var(--line);border-radius:9px}
 .small{font-size:12px;color:var(--muted);line-height:1.45}
 .footer{position:fixed;left:0;right:0;bottom:0;background:rgba(5,12,21,.96);border-top:1px solid var(--line);backdrop-filter:blur(9px);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
-.footerin{max-width:760px;margin:auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.footerin{max-width:760px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr)}
 .footer button{border:0;background:transparent;color:#bccbdb;padding:5px 2px;font-size:11px}
 .footer b{display:block;font-size:18px}
 dialog{width:calc(100% - 20px);max-width:700px;background:#0e1b2d;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px}
@@ -192,9 +192,8 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div class="top">
     <div>
       <div class="brand">🎯 ПОЗИТРОН КЕНО</div>
-      <span id="appVersionBadge" class="version-badge">v7.3.0</span>
-<div style="display:inline-block;margin-top:6px;padding:5px 10px;border:2px solid #4ade80;border-radius:10px;color:#4ade80;font-weight:900">НОВАЯ СБОРКА 7.2 · AI ПЕРЕХОДОВ</div>
-      <div id="status" class="sub">v7.3.0 · AI переходов и ретропоиск · база загружается…</div>
+      <span id="appVersionBadge" class="version-badge">v7.4.0</span>
+      <div id="status" class="sub">v7.4.0 · база загружается…</div>
     </div>
     <div>
       <button id="sync" class="icon">↻</button>
@@ -209,7 +208,6 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   </div>
 
   <div class="sub" style="margin:0 2px 8px">🔸 реальное переходное число из предыдущего тиража · зелёная линия — одно и то же число стоит на одинаковом месте в выпадении и возрастании</div>
-  <div class="row small" style="margin:0 0 9px;border-color:#4b6f46"><b>v7.3.0:</b> переходы — главный анализ. Диапазоны по 4 числа, шаговость, чередование и заполнение архива учитываются в новом «AI Переходов».</div>
 
   <main id="cards"></main>
 
@@ -222,14 +220,14 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div class="section"><span>Инструменты</span></div>
   <div class="tools main-tools">
     <button class="tool" data-panel="searchPanel">🔍 Поиск</button>
-    <button class="tool" data-panel="analogsPanel">🎯 Аналоги+</button>
+    <button id="analogsBtn" class="tool" type="button">🎯 Аналоги+</button>
     <button class="tool" data-panel="archivePanel">📅 Архив</button>
     <button class="tool" data-panel="dataPanel">💾 База</button>
     <div class="sm-split">
       <button id="sprintBtn" class="tool" type="button" aria-label="Спринт" title="Спринт">🏃</button>
       <button id="marathonBtn" class="tool" type="button" aria-label="Марафон" title="Марафон">🐢</button>
     </div>
-    <button id="maxRetroToolBtn" class="tool" type="button">🧠 AI Переходов ▶</button>
+    <button id="aiBtn" class="tool" type="button">🧠 AI Переходов</button>
   </div>
 
   <section id="sprintMarathonPanel" class="card panel" aria-live="polite">
@@ -245,29 +243,6 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   </section>
 
 
-  <section id="analogsPanel" class="card panel">
-    <div class="label">🎯 АНАЛОГИ+</div>
-    <div class="small" style="margin-top:5px">Один анализ по всей сохранённой базе. Прогноз фиксируется только на один следующий тираж, а проверка появляется автоматически после его выхода.</div>
-    <div class="tools" style="grid-template-columns:1fr;margin-top:12px">
-      <button id="runPlusBtn" class="tool" style="font-size:17px">⚡ Провести AI-анализ</button>
-      <button id="qualityBtn" class="tool" style="font-size:15px">📊 Проверить качество на прошлом</button>
-    </div>
-    <div id="plusResult"></div>
-    <div id="qualityResult"></div>
-    <div id="liveCheckResult"></div>
-    <button
-      id="forecastHistoryToggle"
-      class="forecast-history-toggle"
-      type="button"
-      aria-expanded="false"
-    >
-      📋 Архив прогнозов ▶
-    </button>
-    <div id="forecastHistoryContent" hidden>
-      <div id="predictionHistory" class="pred-history"></div>
-    </div>
-  </section>
-
   <section id="archivePanel" class="card panel">
     <div id="archive"></div>
   </section>
@@ -280,15 +255,11 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
     <p class="small">Импорт добавляет новые тиражи без дублей. Экспорт сохраняет всю локальную базу одним JSON-файлом.</p>
   </section>
 
-  <section id="infoPanel" class="card panel">
-    <p class="small">Версия v7.3.0: основной упор сделан на переходы чисел между тиражами, длины цепочек, шаговость и чередование внутри диапазонов. Столбы, одиночные и пустые позиции сохранены как дополнительные признаки. Ретропоиск сравнивает текущую картину со всем архивом и показывает, что происходило следующим.</p>
-  </section>
 </div>
 
 <div class="footer"><div class="footerin">
   <button onclick="scrollTo({top:0,behavior:'smooth'})"><b>⌂</b>Главная</button>
   <button data-foot="archivePanel"><b>▦</b>Архив</button>
-  <button data-foot="analogsPanel"><b>◎</b>Аналоги+</button>
   <button id="sync2"><b>↻</b>Обновить</button>
 </div></div>
 
@@ -318,10 +289,6 @@ const pad=n=>String(n).padStart(2,'0');
 const column=n=>n%10===0?10:n%10;
 let draws=[],mode='fall',timer=null;
 const analysisCache=new WeakMap();
-const KENO_PAYOUTS_V1={"version":"1.0.0","currency":"RUB","source":"Таблица выигрышей КЕНО — скриншоты пользователя 16.08.2026","combination":{"10":{"0":200,"4":100,"5":250,"6":750,"7":5000,"8":50000,"9":1000000,"10":10000000},"9":{"0":150,"4":150,"5":300,"6":1000,"7":10000,"8":210000,"9":4000000},"8":{"0":150,"4":200,"5":500,"6":2500,"7":53300,"8":1500000},"7":{"0":150,"3":100,"4":200,"5":1200,"6":10000,"7":250000},"6":{"3":200,"4":750,"5":4180,"6":75000},"5":{"3":400,"4":1920,"5":20000},"4":{"2":100,"3":300,"4":3300},"3":{"2":300,"3":1500},"2":{"1":100,"2":300},"1":{"1":280}},"extraBets":{"parity":{"moreEven":170,"moreOdd":170,"equal":340},"column":{"payout":700,"rule":"В выбранном столбце больше чисел из выигрышной комбинации, чем в других"}}};
-function kenoPrize(size,hits){
- return Number(KENO_PAYOUTS_V1?.combination?.[String(size)]?.[String(hits)]||0);
-}
 
 
 function normDate(v){
@@ -457,7 +424,7 @@ function archiveDateTimeValue(d){
  return new Date(y||2000,(m||1)-1,day||1,0,0,0).getTime()+minutes(d.time)
 }
 function renderArchive(){
- // v7.3.0: один проход по базе вместо поиска по всей базе при каждой сортировке (убирает зависание)
+ // v7.4.0: один проход по базе вместо поиска по всей базе при каждой сортировке (убирает зависание)
  const m=new Map();
  draws.forEach(d=>{const k=archiveDateKey(d);const x=m.get(k);if(x)x.n++;else m.set(k,{n:1,v:archiveDateTimeValue(d)})});
  const rows=[...m.entries()].sort((a,b)=>b[1].v-a[1].v).map(([k,x])=>[k,x.n]);
@@ -483,354 +450,11 @@ function renderArchiveDay(date){
  $('archiveBack').onclick=renderArchive;
  $('archivePanel').scrollIntoView({behavior:'smooth',block:'start'})
 }
-function winnerSeq(end,depth){
- const start=end-depth+1;if(start<0)return [];
- return draws.slice(start,end+1).map(d=>analysis(d).winner)
-}
-function jaccard(a,b){
- const A=new Set(a),B=new Set(b),u=new Set([...A,...B]);
- if(!u.size)return 1;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return hit/u.size
-}
-function vectorSimilarity(a,b){
- let diff=0,total=0;for(let i=1;i<=10;i++){diff+=Math.abs(a[i]-b[i]);total+=Math.max(a[i],b[i])}
- return total?Math.max(0,1-diff/total):1
-}
-function drawFeatures(i){
- const d=draws[i],a=analysis(d),counts=Array(11).fill(0);d.balls.forEach(n=>counts[column(n)]++);
- return {d,a,counts,pass:[...transitions(i)]}
-}
-function sequenceScore(a,b){
- if(!a.length||a.length!==b.length)return 0;
- let got=0,all=0;
- for(let i=0;i<a.length;i++){
-  const w=i+1;all+=w;
-  if(a[i]===b[i])got+=w;
-  else if(Math.abs(a[i]-b[i])===1)got+=w*.25
- }
- return got/all
-}
-function closeness(x,y,range){return Math.max(0,1-Math.abs(x-y)/range)}
-function similarity(targetEnd,candidateEnd,depth,mode){
- const t=drawFeatures(targetEnd),c=drawFeatures(candidateEnd);
- const seq=sequenceScore(winnerSeq(targetEnd,depth),winnerSeq(candidateEnd,depth));
- const nums=jaccard(t.d.balls,c.d.balls);
- const cols=vectorSimilarity(t.counts,c.counts);
- if(mode==='fast')return {score:seq*.65+cols*.25+nums*.10,seq,nums,cols,pass:0,stats:0,shape:0};
- const pass=jaccard(t.pass,c.pass);
- const parity=(closeness(t.a.even,c.a.even,10)+closeness(t.a.odd,c.a.odd,10))/2;
- const sum=closeness(t.a.sum,c.a.sum,500);
- const stats=(parity+sum)/2;
- const single=jaccard(t.a.single,c.a.single),empty=jaccard(t.a.empty,c.a.empty),shape=(single+empty)/2;
- return {score:seq*.38+nums*.20+cols*.17+pass*.10+stats*.08+shape*.07,seq,nums,cols,pass,stats,shape}
-}
-function pct(x){return Math.round(x*100)+'%'}
-function findAnalogs(){
- if(draws.length<5){$('analogsResult').innerHTML='<div class="row small">В базе пока недостаточно тиражей.</div>';return}
- const requested=Number($('analogDraw').value),targetEnd=requested?draws.findIndex(d=>d.draw===requested):draws.length-1;
- const depth=Number($('analogDepth').value),limit=Number($('analogLimit').value),kind=$('analogMode').value;
- if(targetEnd<depth-1){$('analogsResult').innerHTML='<div class="row small">Для этого тиража не хватает предыдущих данных.</div>';return}
- const targetSeq=winnerSeq(targetEnd,depth),rows=[];
- for(let end=depth-1;end<draws.length-1;end++){
-  if(end===targetEnd||Math.abs(end-targetEnd)<depth)continue;
-  const s=similarity(targetEnd,end,depth,kind);
-  rows.push({end,next:end+1,...s})
- }
- rows.sort((a,b)=>b.score-a.score||draws[b.end].draw-draws[a.end].draw);
- const top=rows.slice(0,limit),freq=new Map();top.forEach(r=>{const w=analysis(draws[r.next]).winner;freq.set(w,(freq.get(w)||0)+1)});
- const freqHtml=[...freq.entries()].sort((a,b)=>b[1]-a[1]||a[0]-b[0]).map(([w,n])=>`<span>ст${w} — ${n}×</span>`).join('');
- const t=draws[targetEnd];
- $('analogsResult').innerHTML=`<div class="row"><b>Вход: №${t.draw}</b> · цепочка <b>${targetSeq.join('–')}</b><br><span class="small">Проверено исторических ситуаций: ${rows.length}. Ниже — лучшие совпадения.</span><div class="freq">${freqHtml||'<span>нет данных</span>'}</div></div>`+
- top.map((r,n)=>{
-  const d=draws[r.end],next=draws[r.next],seq=winnerSeq(r.end,depth),nw=analysis(next).winner;
-  const breakdown=kind==='fast'
-   ?`<span>цепочка ${pct(r.seq)}</span><span>столбы ${pct(r.cols)}</span><span>числа ${pct(r.nums)}</span>`
-   :`<span>цепочка ${pct(r.seq)}</span><span>числа ${pct(r.nums)}</span><span>столбы ${pct(r.cols)}</span><span>переходы ${pct(r.pass)}</span><span>Σ/чётность ${pct(r.stats)}</span><span>одиноч./пустые ${pct(r.shape)}</span>`;
-  return `<div class="analog-item"><div style="display:flex;justify-content:space-between;gap:8px"><div><b>${n+1}. №${d.draw}</b><div class="small">${showDate(d.date)} ${d.time}</div></div><div class="analog-score">${pct(r.score)}</div></div><div style="margin-top:6px">Цепочка: <b>${seq.join('–')}</b></div><div style="margin-top:4px">Следом №${next.draw}: <span class="analog-next">🔴 ст${nw}</span></div><div class="breakdown">${breakdown}</div></div>`
- }).join('')
-}
-function buildPlusPrediction(targetEnd){
- if(targetEnd<49)return null;
- const candidates=[];
- for(let end=4;end<targetEnd;end++){
-  if(Math.abs(end-targetEnd)<5)continue;
-  const depthScores={};let total=0,weight=0;
-  for(const depth of [2,3,4]){
-   if(end<depth-1||targetEnd<depth-1)continue;
-   const r=similarity(targetEnd,end,depth,'full');
-   const w=depth===2?1.0:depth===3?1.45:1.25;
-   depthScores[depth]=r.score;total+=r.score*w;weight+=w;
-  }
-  if(weight)candidates.push({end,next:end+1,score:total/weight,depthScores});
- }
- candidates.sort((a,b)=>b.score-a.score||draws[b.end].draw-draws[a.end].draw);
- const pool=candidates.slice(0,50);
- if(!pool.length)return null;
- const threshold=Math.max(.38,pool[Math.min(24,pool.length-1)].score);
- const top=pool.filter(r=>r.score>=threshold).slice(0,40);
- const colScore=Array(11).fill(0),numScore=Array(81).fill(0),support=Array.from({length:11},()=>({count:0,d2:0,d3:0,d4:0,examples:[]}));
- top.forEach((r,rank)=>{
-  const next=draws[r.next],wcol=analysis(next).winner;
-  const rankWeight=Math.max(.25,1-rank/Math.max(20,top.length));
-  const weight=(.35+r.score*.65)*rankWeight;
-  colScore[wcol]+=weight;support[wcol].count++;
-  for(const d of [2,3,4])if((r.depthScores[d]||0)>=.62)support[wcol]['d'+d]++;
-  if(support[wcol].examples.length<3)support[wcol].examples.push({draw:draws[r.end].draw,next:next.draw,score:Math.round(r.score*100)});
-  next.balls.forEach(n=>numScore[n]+=weight);
- });
- const columns=[...Array(10)].map((_,i)=>i+1).sort((a,b)=>colScore[b]-colScore[a]||support[b].count-support[a].count||a-b).slice(0,4);
- const totalCol=columns.reduce((a,c)=>a+colScore[c],0)||1;
- const numbers=[...Array(80)].map((_,i)=>i+1).sort((a,b)=>numScore[b]-numScore[a]||a-b).slice(0,10);
- const first=colScore[columns[0]],second=colScore[columns[1]]||0;
- const topShare=first/(colScore.reduce((a,x)=>a+x,0)||1);
- const margin=first?Math.max(0,(first-second)/first):0;
- const avgSimilarity=top.reduce((a,r)=>a+r.score,0)/top.length;
- const consensus=support[columns[0]].count/top.length;
- const confidenceScore=avgSimilarity*.35+consensus*.35+topShare*.20+margin*.10;
- const confidence=confidenceScore>=.58?'высокая':confidenceScore>=.43?'средняя':'слабая';
- const reasons={};
- columns.forEach(c=>{
-  const x=support[c];const parts=[];
-  parts.push(`${x.count} из ${top.length} аналогов`);
-  if(x.d4)parts.push(`хвост 4: ${x.d4}`);
-  if(x.d3)parts.push(`хвост 3: ${x.d3}`);
-  if(x.d2)parts.push(`хвост 2: ${x.d2}`);
-  reasons[c]=parts;
- });
- return {top,columns,totalCol,colScore,numbers,k1:numbers.slice(0,5),k2:numbers.slice(5,10),support,reasons,confidence,confidenceScore,avgSimilarity,consensus};
-}
-const PLUS_PREDICTIONS_KEY='pozitron_v7_plus_predictions';
-function loadPlusPredictions(){
- try{const x=JSON.parse(localStorage.getItem(PLUS_PREDICTIONS_KEY)||'[]');return Array.isArray(x)?x:[]}catch(e){return []}
-}
-function savePlusPredictions(items){
- localStorage.setItem(PLUS_PREDICTIONS_KEY,JSON.stringify(items.slice(-200)))
-}
-function savePlusPrediction(targetDraw,p,sourceDraw){
- const items=loadPlusPredictions();
- const exists=items.find(x=>Number(x.targetDraw)===Number(targetDraw));
- if(exists)return {record:exists,created:false};
- const record={
-  targetDraw:Number(targetDraw),sourceDraw:Number(sourceDraw),createdAt:new Date().toISOString(),
-  columns:p.columns.slice(),numbers:p.numbers.slice(),k1:p.k1.slice(),k2:p.k2.slice(),confidence:p.confidence||'не определена',confidenceScore:p.confidenceScore||0,reasons:p.reasons||{},analogs:(p.top||[]).slice(0,10).map(r=>({draw:draws[r.end].draw,next:draws[r.next].draw,score:Math.round(r.score*100)}))
- };
- items.push(record);items.sort((a,b)=>a.targetDraw-b.targetDraw);savePlusPredictions(items);
- return {record,created:true}
-}
-function hitNumberHtml(n,set){return `<span class="check-num ${set.has(n)?'hit':''}">${pad(n)}${set.has(n)?' ✅':''}</span>`}
-function renderOnePredictionCheck(rec,title){
- const actual=draws.find(d=>Number(d.draw)===Number(rec.targetDraw));
- if(!actual){
-  return `<div class="section"><span>⏳ ${title}</span></div><div class="row"><b>Прогноз сохранён только на тираж №${rec.targetDraw}</b><br><span class="small">Числа и сборки не будут проверяться по другим тиражам. Ожидаем результат именно №${rec.targetDraw}.</span></div>`
- }
- const set=new Set(actual.balls),a=analysis(actual),winner=a.winner;
- const numHits=rec.numbers.filter(n=>set.has(n)).length,k1Hits=rec.k1.filter(n=>set.has(n)).length,k2Hits=rec.k2.filter(n=>set.has(n)).length;
- const rank=rec.columns.indexOf(winner)+1;
- const colText=rank?`<span class="check-good">ст${winner} — ${rank}-е место прогноза ✅</span>`:`<span class="check-bad">ст${winner} — в четвёрку не попал ❌</span>`;
- return `<div class="section"><span>✅ ${title}</span></div>
-  <div class="row"><b>Тираж №${rec.targetDraw}</b> · победный ${colText}<br>
-  <span class="small">Прогноз был создан после тиража №${rec.sourceDraw} и проверен только по №${rec.targetDraw}.</span></div>
-  <div class="section"><span>Совпало чисел: ${numHits} из 10</span></div>
-  <div class="row">${rec.numbers.map(n=>hitNumberHtml(n,set)).join('')}</div>
-  <div class="section"><span>К5 №1: ${k1Hits} из 5</span></div>
-  <div class="row">${rec.k1.map(n=>hitNumberHtml(n,set)).join('')}</div>
-  <div class="section"><span>К5 №2: ${k2Hits} из 5</span></div>
-  <div class="row">${rec.k2.map(n=>hitNumberHtml(n,set)).join('')}</div>
-  <div class="section"><span>Фактические 20 чисел</span></div>
-  <div class="numbers">${actual.balls.map(n=>`<div class="ball ${rec.numbers.includes(n)?'hit':''}">${pad(n)}${rec.numbers.includes(n)?' ✅':''}</div>`).join('')}</div><div class="row check-good"><b>✅ Проверка завершена.</b><br>Этот прогноз закрыт и больше не сравнивается с другими тиражами.</div>`
-}
-function renderLivePredictionCheck(){
- const box=$('liveCheckResult');if(!box)return;
- const items=loadPlusPredictions().sort((a,b)=>b.targetDraw-a.targetDraw);
- if(!items.length){box.innerHTML='';return}
- const pending=items.find(x=>!draws.some(d=>Number(d.draw)===Number(x.targetDraw)));
- const checked=items.find(x=>draws.some(d=>Number(d.draw)===Number(x.targetDraw)));
- let html='';
- if(pending)html+=renderOnePredictionCheck(pending,'Прогноз ожидает результат');
- if(checked)html+=renderOnePredictionCheck(checked,'Проверка последнего прогноза');
- box.innerHTML=html
-}
-function predictionMarkForDraw(d,predictionMap){
- const rec=predictionMap.get(Number(d.draw)),winner=analysis(d).winner;
- if(!rec)return {winner,mark:'—',cls:'pred-none',title:'Прогноз не делался'};
- const rank=Array.isArray(rec.columns)?rec.columns.map(Number).indexOf(Number(winner))+1:0;
- if(rank===1)return {winner,mark:'✅',cls:'pred-first',title:'Победный столб был на 1-м месте прогноза'};
- if(rank>=2&&rank<=4)return {winner,mark:'☑️',cls:'pred-top4',title:'Победный столб был на '+rank+'-м месте прогноза'};
- return {winner,mark:'❌',cls:'pred-miss',title:'Победного столба не было в прогнозной четвёрке'};
-}
-function predictionBlocks(){
- const predictions=loadPlusPredictions();
- if(!predictions.length)return [];
- const predictionMap=new Map(predictions.map(x=>[Number(x.targetDraw),x]));
- const targets=predictions.map(x=>Number(x.targetDraw)).filter(Number.isFinite);
- if(!targets.length)return [];
- const firstTarget=Math.min(...targets),allBlocks=[];let cur=[];
- draws.forEach(d=>{
-  const newDay=cur.length&&archiveDateKey(d)!==archiveDateKey(cur.at(-1));
-  const realGap=cur.length&&minutes(d.time)-minutes(cur.at(-1).time)>30;
-  if(newDay||realGap){allBlocks.push(cur);cur=[]}
-  cur.push(d);
-  if(cur.length===5){allBlocks.push(cur);cur=[]}
- });
- if(cur.length)allBlocks.push(cur);
- return allBlocks.filter(b=>Number(b.at(-1).draw)>=firstTarget).map((b,i,arr)=>{
-  const next=arr[i+1];
-  const hasBreak=!!(next&&archiveDateKey(next[0])===archiveDateKey(b.at(-1))&&minutes(next[0].time)-minutes(b.at(-1).time)>30);
-  return {draws:b,predictionMap,hasBreak};
- });
-}
-function analogArchiveStatus(rec){
- const actual=draws.find(d=>Number(d.draw)===Number(rec.targetDraw));
- if(!actual)return {
-  actual:null,winner:null,rank:0,k1Hits:null,k2Hits:null,k1Prize:0,k2Prize:0,totalPrize:0,
-  prizeCount:0,status:'⏳'
- };
- const set=new Set(actual.balls||[]);
- const winner=analysis(actual).winner;
- const rank=Array.isArray(rec.columns)?rec.columns.map(Number).indexOf(Number(winner))+1:0;
- const k1Hits=Array.isArray(rec.k1)?rec.k1.filter(n=>set.has(Number(n))).length:0;
- const k2Hits=Array.isArray(rec.k2)?rec.k2.filter(n=>set.has(Number(n))).length:0;
- const k1Prize=kenoPrize(5,k1Hits),k2Prize=kenoPrize(5,k2Hits);
- const totalPrize=k1Prize+k2Prize;
- const prizeCount=(k1Prize>0?1:0)+(k2Prize>0?1:0);
- return {
-  actual,winner,rank,k1Hits,k2Hits,k1Prize,k2Prize,totalPrize,prizeCount,
-  status:prizeCount===2?'🔥🔥':prizeCount===1?'🔥':'—'
- };
-}
-function analogArchiveBalls(values,actual){
- const set=actual?new Set(actual.balls||[]):new Set();
- return (Array.isArray(values)?values:[]).map(n=>{
-  const hit=set.has(Number(n));
-  return '<span class="ah-ball '+(hit?'hit':'')+'">'+pad(n)+'</span>';
- }).join('');
-}
-function analogPrizeBadge(prize){
- return prize>0
-  ? '<span class="ah-prize">🔥 '+money(prize)+'</span>'
-  : '<span class="ah-prize none">—</span>';
-}
-function renderPredictionHistory(){
- const box=$('predictionHistory');if(!box)return;
- const opened=new Set([...box.querySelectorAll('details.analog-history-item[open]')].map(x=>x.dataset.key).filter(Boolean));
- const predictions=loadPlusPredictions().slice().sort((a,b)=>Number(b.targetDraw)-Number(a.targetDraw));
- if(!predictions.length){box.innerHTML='<div class="row small">Сохранённых frozen-прогнозов пока нет.</div>';return}
-
- const rows=predictions.map(rec=>{
-  const s=analogArchiveStatus(rec),d=s.actual;
-  const date=d?showDate(d.date):'—',time=d?normTime(d.time):'—';
-  const cols=Array.isArray(rec.columns)?rec.columns.map(Number):[];
-  const colResult=s.actual
-   ? (s.rank?'<span class="ah-win">ст'+s.winner+' · '+s.rank+'-е место ✅</span>'
-            :'<span class="ah-miss">ст'+s.winner+' · мимо</span>')
-   :'<span class="small">ожидаем факт</span>';
-
-  const colChips=cols.length
-   ? cols.map((c,i)=>'<span class="ah-colchip '+(s.actual&&Number(c)===Number(s.winner)?'hit':'')+'">'+(i+1)+'. ст'+c+'</span>').join('')
-   :'—';
-
-  const totalPrize=s.totalPrize>0
-   ? '<span class="ah-total-prize">🔥 '+money(s.totalPrize)+'</span>'
-   : '<span class="ah-total-prize none">выигрыша нет</span>';
-
-  return '<details class="analog-history-item '+(s.totalPrize>0?'is-prize':'is-no-prize')+'" data-key="'+rec.targetDraw+'">'+
-    '<summary>'+
-      '<span class="ah-draw">№'+rec.targetDraw+'</span>'+
-      '<span class="ah-date">'+date+'</span>'+
-      '<span class="ah-time">'+time+'</span>'+
-      '<span class="ah-column">'+(s.actual?'ст'+s.winner:'—')+'</span>'+
-      '<span class="ah-result">'+s.status+'</span>'+
-      '<span class="ah-chevron">▾</span>'+
-    '</summary>'+
-    '<div class="ah-body">'+
-      '<div class="ah-topline">'+
-        '<div class="ah-factbox">Факт: <b>'+(s.actual?'ст'+s.winner:'—')+'</b></div>'+
-        totalPrize+
-      '</div>'+
-      '<div class="ah-label">Прогноз столбов</div>'+
-      '<div class="ah-colchips">'+colChips+'</div>'+
-      '<div class="ah-resultline">Результат столба: '+colResult+'</div>'+
-      '<div class="ah-krow">'+
-        '<div class="ah-khead"><span class="ah-kname">К5 №1</span><span class="ah-kright"><span class="ah-khits">'+(s.actual?s.k1Hits+'/5':'—')+'</span>'+analogPrizeBadge(s.k1Prize)+'</span></div>'+
-        '<div class="ah-balls">'+analogArchiveBalls(rec.k1,s.actual)+'</div>'+
-      '</div>'+
-      '<div class="ah-krow">'+
-        '<div class="ah-khead"><span class="ah-kname">К5 №2</span><span class="ah-kright"><span class="ah-khits">'+(s.actual?s.k2Hits+'/5':'—')+'</span>'+analogPrizeBadge(s.k2Prize)+'</span></div>'+
-        '<div class="ah-balls">'+analogArchiveBalls(rec.k2,s.actual)+'</div>'+
-      '</div>'+
-    '</div>'+
-  '</details>';
- }).join('');
-
- box.innerHTML='<div class="analog-history-head"><span>ТИРАЖ</span><span>ДАТА</span><span>ВРЕМЯ</span><span>СТОЛБ</span><span>ИТОГ</span><span></span></div>'+
-  '<div class="analog-history-list">'+rows+'</div>';
-
- for(const d of box.querySelectorAll('details.analog-history-item'))if(opened.has(d.dataset.key))d.open=true;
-}
-function runAnalogsPlus(){
- const box=$('plusResult');
- if(draws.length<50){box.innerHTML='<div class="row small">Для нового анализа нужно хотя бы 50 сохранённых тиражей. Сейчас: '+draws.length+'.</div>';return}
- const targetEnd=draws.length-1,calculated=buildPlusPrediction(targetEnd);
- if(!calculated){box.innerHTML='<div class="row small">Подходящая группа аналогов не найдена.</div>';return}
- const latest=draws[targetEnd],targetDraw=latest.draw+1;
- const saved=savePlusPrediction(targetDraw,calculated,latest.draw),p=saved.record;
- const confidenceClass=calculated.confidence==='высокая'?'check-good':calculated.confidence==='слабая'?'check-bad':'';
- const weights=p.columns.map(c=>calculated.colScore&&calculated.totalCol?Math.round(calculated.colScore[c]/calculated.totalCol*100):0);
- const weakNote=calculated.confidence==='слабая'?'<div class="row check-bad"><b>Сильного сигнала нет.</b> Прогноз сохранён, но его нужно считать экспериментальным.</div>':'';
- box.innerHTML=`<div class="row" style="margin-top:12px"><b>Прогноз только на тираж №${targetDraw}</b><br><span class="small">${saved.created?'Создан и зафиксирован сейчас':'Уже был зафиксирован раньше и не изменён'} · отобрано аналогов: ${calculated.top.length} · средняя похожесть: ${pct(calculated.avgSimilarity)}</span><br><b class="${confidenceClass}">Уверенность: ${calculated.confidence} (${Math.round(calculated.confidenceScore*100)}%)</b></div>${weakNote}
- <div class="section"><span>Четыре основных столба</span></div>
- <div class="tools" style="grid-template-columns:1fr 1fr">${p.columns.map((c,i)=>`<div class="tool" style="text-align:center"><div class="small">${i+1} место</div><div style="font-size:25px;font-weight:950;color:#ffd45b">ст${c}</div><div>${weights[i]}%</div></div>`).join('')}</div>
- <div class="section"><span>Почему выбраны столбы</span></div>
- ${p.columns.map(c=>`<div class="row"><b>ст${c}</b> · ${(calculated.reasons[c]||[]).join(' · ')}<br><span class="small">Примеры: ${(calculated.support[c].examples||[]).map(x=>`№${x.draw}→№${x.next} (${x.score}%)`).join(', ')||'нет'}</span></div>`).join('')}
- <div class="section"><span>Наиболее вероятные числа</span></div>
- <div class="numbers">${p.numbers.map(n=>`<div class="ball">${pad(n)}</div>`).join('')}</div>
- <div class="section"><span>Сборки К5</span></div>
- <div class="row" style="font-size:20px;font-weight:900;letter-spacing:2px">${p.k1.map(pad).join(' · ')}</div>
- <div class="row" style="font-size:20px;font-weight:900;letter-spacing:2px">${p.k2.map(pad).join(' · ')}</div>
- <div class="row small"><b>Зафиксировано строго на №${targetDraw}.</b> Причины выбора и лучшие аналоги сохранены вместе с прогнозом. После проверки он будет закрыт и не сравнится с другими тиражами.</div>`;
- renderLivePredictionCheck();
- renderPredictionHistory();
-}
-
-function qualityBand(v){return v>=.45?'высокая':v>=.30?'средняя':'низкая'}
-async function runQualityAudit(){
- const box=$('qualityResult');
- if(draws.length<120){box.innerHTML=`<div class="row small">Для честной проверки нужно хотя бы 120 тиражей. Сейчас: ${draws.length}.</div>`;return}
- $('qualityBtn').disabled=true;$('qualityBtn').textContent='⏳ Проверяю…';
- box.innerHTML='<div class="row small">Проверяю исторические прогнозы без заглядывания в будущее…</div>';
- await new Promise(r=>setTimeout(r,40));
- try{
-  const maxTests=30,start=Math.max(60,draws.length-1-maxTests),results=[];
-  for(let target=start;target<draws.length-1;target++){
-   const p=buildPlusPrediction(target);if(!p)continue;
-   const actual=draws[target+1],a=analysis(actual),set=new Set(actual.balls),rank=p.columns.indexOf(a.winner)+1;
-   const hits=p.numbers.filter(n=>set.has(n)).length,k1=p.k1.filter(n=>set.has(n)).length,k2=p.k2.filter(n=>set.has(n)).length;
-   results.push({rank,hits,k1,k2,confidence:p.confidence,score:p.confidenceScore,draw:actual.draw});
-   if(results.length%5===0)await new Promise(r=>setTimeout(r,0));
-  }
-  if(!results.length){box.innerHTML='<div class="row small">Не удалось построить исторические проверки.</div>';return}
-  const n=results.length,first=results.filter(x=>x.rank===1).length,top4=results.filter(x=>x.rank>0).length;
-  const avgHits=results.reduce((a,x)=>a+x.hits,0)/n,avgBestK5=results.reduce((a,x)=>a+Math.max(x.k1,x.k2),0)/n;
-  const strong=results.filter(x=>x.confidence==='высокая'),strongTop4=strong.length?strong.filter(x=>x.rank>0).length/strong.length:0;
-  const recent=results.slice(-8).reverse().map(x=>`<span>№${x.draw}: ${x.rank?`столб ${x.rank}-е место`:'столб мимо'}, числа ${x.hits}/10</span>`).join('');
-  const quality=(top4/n)*.55+(first/n)*.25+Math.min(1,avgHits/4)*.20;
-  box.innerHTML=`<div class="section"><span>📊 Честная проверка качества</span></div>
-   <div class="row"><b>Проверено: ${n} прошлых тиражей</b><br><span class="small">Для каждого теста использовались только данные, которые существовали до проверяемого тиража.</span></div>
-   <div class="tools" style="grid-template-columns:1fr 1fr">
-    <div class="tool" style="text-align:center"><div class="small">1-е место</div><div style="font-size:23px;font-weight:950">${first}/${n}</div><div>${Math.round(first/n*100)}%</div></div>
-    <div class="tool" style="text-align:center"><div class="small">В четвёрке</div><div style="font-size:23px;font-weight:950">${top4}/${n}</div><div>${Math.round(top4/n*100)}%</div></div>
-    <div class="tool" style="text-align:center"><div class="small">Числа</div><div style="font-size:23px;font-weight:950">${avgHits.toFixed(1)}/10</div><div>в среднем</div></div>
-    <div class="tool" style="text-align:center"><div class="small">Лучший К5</div><div style="font-size:23px;font-weight:950">${avgBestK5.toFixed(1)}/5</div><div>в среднем</div></div>
-   </div>
-   <div class="row"><b>Оценка модели: ${qualityBand(quality)} (${Math.round(quality*100)}%)</b><br><span class="small">Высокая уверенность: ${strong.length?`${Math.round(strongTop4*100)}% попаданий в четвёрку на ${strong.length} тестах`:'пока недостаточно случаев'}.</span></div>
-   <div class="freq">${recent}</div>
-   <div class="row small"><b>Важно:</b> это статистика, а не гарантия будущего результата. Она нужна, чтобы сравнивать версии алгоритма без подгонки.</div>`;
- }finally{$('qualityBtn').disabled=false;$('qualityBtn').textContent='📊 Проверить качество на прошлом'}
-}
 
 function render(){
- $('status').textContent=draws.length?`v7.3.0 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.3.0 · база: 0';
+ $('status').textContent=draws.length?`v7.4.0 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.0 · база: 0';
  if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
- renderCards();renderChains();renderArchive();renderLivePredictionCheck();renderPredictionHistory()
+ renderCards();renderChains();renderArchive()
 }
 async function update(){
  const raw='https://raw.githubusercontent.com/arsazet17/pozitron-keno-v72/main/keno-history.json';
@@ -851,7 +475,7 @@ async function update(){
     const r=await fetch(fetchUrl,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
     const arr=parse(await r.text());if(!arr.length)throw new Error('нет распознанных тиражей');
     merge(arr);
-    // v7.3.0: перерисовываем только если база изменилась, считаем только реально новые тиражи
+    // v7.4.0: перерисовываем только если база изменилась, считаем только реально новые тиражи
     if(draws.length!==prevLen)render();
     const fresh=prevLast?draws.filter(d=>d.draw>prevLast).length:0;
     const last=draws.at(-1),base=draws.length.toLocaleString('ru-RU');
@@ -862,7 +486,7 @@ async function update(){
   $('status').textContent='Обновление не выполнено: '+(lastError?.message||'источник недоступен')
  }finally{updating=false}
 }
-// v7.3.0: база скачивается только тогда, когда на сервере мог появиться новый тираж
+// v7.4.0: база скачивается только тогда, когда на сервере мог появиться новый тираж
 // (тираж каждые 15–30 мин + ~8 мин на запись в архив), а не каждые 5 минут подряд.
 let updating=false,lastCheckAt=0;
 function drawTimeMs(d){
@@ -887,8 +511,6 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkForUp
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.mode;renderCards()});
 document.querySelectorAll('[data-panel]').forEach(b=>b.onclick=()=>$(b.dataset.panel).classList.toggle('show'));
 document.querySelectorAll('[data-foot]').forEach(b=>b.onclick=()=>{const p=$(b.dataset.foot);p.classList.add('show');p.scrollIntoView({behavior:'smooth'})});
-$('runPlusBtn').onclick=runAnalogsPlus;
-$('qualityBtn').onclick=runQualityAudit;
 $('findBtn').onclick=()=>{const n=Number($('searchDraw').value),d=draws.find(x=>x.draw===n);$('searchResult').innerHTML=d?`<div class="row"><b>№${d.draw}</b> — ${showDate(d.date)} ${d.time}<br>${d.balls.map(pad).join(' ')}</div>`:'<div class="row small">Тираж не найден.</div>'};
 $('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const added=merge(parse(r.result));render();$('status').textContent=`Импорт: добавлено ${added} · всего ${draws.length}`};r.readAsText(f,'UTF-8')};
 $('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify({version:'7.2',exportedAt:new Date().toISOString(),draws},null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='ПОЗИТРОН_КЕНО_v7_2_БАЗА.json';a.click();URL.revokeObjectURL(u)};
@@ -896,25 +518,18 @@ $('sync').onclick=update;$('sync2').onclick=update;
 $('settingsBtn').onclick=()=>{const raw='https://raw.githubusercontent.com/arsazet17/pozitron-keno-v72/main/keno-history.json';let u=(localStorage.getItem('pozitron_v5_url')||raw).trim();if(!u||u==='https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws'||u==='keno-history.json')u=raw;$('sourceUrl').value=u;$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
 $('saveSettings').onclick=()=>{localStorage.setItem('pozitron_v5_url',$('sourceUrl').value.trim());localStorage.setItem('pozitron_v5_interval',$('interval').value);auto()};
 $('chainDate').onchange=renderChains;
-const forecastHistoryToggle=$('forecastHistoryToggle');
-const forecastHistoryContent=$('forecastHistoryContent');
-if(forecastHistoryToggle&&forecastHistoryContent){
- forecastHistoryToggle.onclick=()=>{
-  const isOpen=!forecastHistoryContent.hidden;
-  forecastHistoryContent.hidden=isOpen;
-  forecastHistoryToggle.setAttribute('aria-expanded',String(!isOpen));
-  forecastHistoryToggle.textContent=isOpen?'📋 Архив прогнозов ▶':'📋 Архив прогнозов ▼';
- };
-}
+// v7.4.0: старые сохранённые прогнозы больше не нужны — освобождаем память телефона
+try{['pozitron_v7_plus_predictions','pozitronMaxRetroForecastsV72'].forEach(k=>localStorage.removeItem(k))}catch(_){}
 load();render();auto();setTimeout(update,800);
 </script>
 <script id="sm-buttons">
-/* v7.3.0: кнопки 🏃 и 🐢 освобождены под новые функции. Пока каждая открывает свою пустую заготовку. */
+/* v7.4.0: функции предсказаний убраны. Кнопки 🎯 Аналоги+, 🏃, 🐢 и 🧠 AI Переходов оставлены под новые функции:
+   каждая открывает свою пустую заготовку, повторное нажатие закрывает. */
 (function(){
-  const TEXT={sprintBtn:'🏃 Здесь будет новая функция.',marathonBtn:'🐢 Здесь будет новая функция.'};
+  const IDS=['analogsBtn','sprintBtn','marathonBtn','aiBtn'];
   let active=null;
   document.addEventListener('click',event=>{
-    const button=event.target.closest('#sprintBtn, #marathonBtn');
+    const button=event.target.closest(IDS.map(id=>'#'+id).join(','));
     if(!button)return;
     const panel=document.getElementById('sprintMarathonPanel'),box=document.getElementById('sprintMarathonResult');
     if(!panel||!box)return;
@@ -922,22 +537,21 @@ load();render();auto();setTimeout(update,800);
     const close=active===button.id&&panel.classList.contains('show');
     active=close?null:button.id;
     panel.classList.toggle('show',!close);
-    if(!close)box.textContent=TEXT[button.id];
-    for(const id of ['sprintBtn','marathonBtn']){
+    if(!close)box.textContent=button.textContent.trim()+' — здесь будет новая функция.';
+    for(const id of IDS){
       const b=document.getElementById(id);
       if(b){b.classList.toggle('on',id===active);b.setAttribute('aria-expanded',String(id===active))}
     }
   },true);
 })();
 </script>
-<script src="max-retro.js?v=60cf4df7bd49"></script>
 <script src="next-draw-banner.js?v=8b0b10f3b11d"></script>
 
 <script id="v72-sw-register">
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=480e597fe1bf', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=f60c95790c49', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });

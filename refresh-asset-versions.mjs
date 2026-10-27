@@ -8,7 +8,7 @@ const MANIFEST='manifest.webmanifest';
 const SW='sw.js';
 const VERSION_FILE='app-version.json';
 
-const assets=['max-retro.js','next-draw-banner.js','keno-payouts-v1.json'];
+const assets=['next-draw-banner.js'];
 
 async function exists(path){try{await fs.access(path);return true}catch{return false}}
 async function fileHash(path){
@@ -22,7 +22,7 @@ async function appVersion(){
 }
 function normalizeIndexForBuild(html){
   let x=html.replace(/<meta\s+name=["']app-build["']\s+content=["'][^"']*["']\s*\/?>/i,'<meta name="app-build" content="BUILD">');
-  for(const asset of ['max-retro.js','next-draw-banner.js']){
+  for(const asset of ['next-draw-banner.js']){
     const name=escapeRegExp(asset);
     x=x.replace(new RegExp(`(<script\\b[^>]*\\bsrc=["']${name})(?:\\?v=[^"']*)?(["'][^>]*><\\/script>)`,'gi'),'$1?v=HASH$2');
   }
@@ -55,7 +55,7 @@ html=html.replace(/('Версия )v7\.\d+(?:\.\d+)?( · база: 0')/g,`$1v${v
 html=html.replace(/(<b>)v7\.\d+(?:\.\d+)?(:<\/b> переходы)/,`$1v${version}$2`);
 html=html.replace(/(Версия )v7\.\d+(?:\.\d+)?(: основной упор)/,`$1v${version}$2`);
 
-for(const asset of ['max-retro.js','next-draw-banner.js']){
+for(const asset of ['next-draw-banner.js']){
   if(!(await exists(asset)))continue;
   const hash=await fileHash(asset),name=escapeRegExp(asset);
   html=html.replace(new RegExp(`(<script\\b[^>]*\\bsrc=["']${name})(?:\\?v=[^"']*)?(["'][^>]*><\\/script>)`,'gi'),`$1?v=${hash}$2`);
@@ -99,8 +99,8 @@ await fs.writeFile(MANIFEST,JSON.stringify(manifest,null,2)+'\n','utf8');
 const sw=`const CACHE='pozitron-v72-shell-${build}';
 const SHELL=[
  './','./index.html','./manifest.webmanifest',
- './max-retro.js','./next-draw-banner.js',
- './keno-payouts-v1.json','./icon-v72.png'
+ './next-draw-banner.js',
+ './icon-v72.png'
 ];
 self.addEventListener('install',event=>event.waitUntil(
  caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())
