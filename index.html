@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-content" content="bcc64f372565">
-<meta name="app-build" content="f23bcb05a61c">
-<title>ПОЗИТРОН КЕНО v7.4.03</title>
+<meta name="app-content" content="7c580997df66">
+<meta name="app-build" content="ae1266305355">
+<title>ПОЗИТРОН КЕНО v7.4.04</title>
 <link rel="manifest" href="manifest.webmanifest">
 
 <link rel="icon" type="image/svg+xml" href="icon-v72.png">
@@ -198,7 +198,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
 .gm-scroll{max-height:70vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
 .gm-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
 .gm-table th{position:sticky;top:0;z-index:1;background:#16304d;padding:0;border-bottom:1px solid var(--line)}
-.gm-table td{border:1px solid #1d3350;padding:3px 2px;vertical-align:middle;text-align:center}
+.gm-table td{border:1px solid #1d3350;padding:5px 3px;vertical-align:middle;text-align:center}
 .gm-draw{width:44px;color:var(--muted);font-size:11px}
 .gm-time{width:40px;color:var(--muted);font-size:11px}
 th.gm-draw,th.gm-time{padding:6px 2px;font-size:11px}
@@ -207,7 +207,7 @@ th.gm-draw,th.gm-time{padding:6px 2px;font-size:11px}
 .gm-head.gm-m-nums small{color:#9fd0ff}.gm-head.gm-m-even small{color:#9ff0bd}.gm-head.gm-m-odd small{color:#ffc58a}
 .gm-cell{background:#0f2238}
 .gm-empty{background:#0a1626}
-.gm-table td.gm-has-win{background:#8a6210;box-shadow:inset 0 0 0 3px var(--gold)}
+.gm-table td.gm-has-win{background:#8a6210;box-shadow:inset 0 0 0 4px #07111f,inset 0 0 0 7px var(--gold);padding:9px 7px}
 .gm-has-win .gm-c,.gm-has-win .gm-n{background:#3a2a05;color:#ffe9a8}
 .gm-has-win .gm-c.gm-win{background:var(--gold);color:#1d1600;box-shadow:0 0 0 2px #fff6}
 .gm-c{display:inline-block;min-width:15px;margin:1px;padding:1px 2px;border-radius:5px;background:#203b5c;font-weight:800}
@@ -222,8 +222,8 @@ th.gm-draw,th.gm-time{padding:6px 2px;font-size:11px}
   <div class="top">
     <div>
       <div class="brand">🎯 ПОЗИТРОН КЕНО</div>
-      <span id="appVersionBadge" class="version-badge">v7.4.03</span>
-      <div id="status" class="sub">v7.4.03 · база загружается…</div>
+      <span id="appVersionBadge" class="version-badge">v7.4.04</span>
+      <div id="status" class="sub">v7.4.04 · база загружается…</div>
     </div>
     <div>
       <button id="sync" class="icon">↻</button>
@@ -484,7 +484,7 @@ function renderArchiveDay(date){
 }
 
 function render(){
- $('status').textContent=draws.length?`v7.4.03 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.03 · база: 0';
+ $('status').textContent=draws.length?`v7.4.04 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.04 · база: 0';
  if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
  renderCards();renderChains();renderArchive();
  try{window.dispatchEvent(new Event('keno:draws'))}catch(_){}
@@ -585,7 +585,7 @@ load();render();auto();setTimeout(update,800);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=f23bcb05a61c', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=ae1266305355', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });
