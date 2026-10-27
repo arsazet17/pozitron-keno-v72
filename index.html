@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
 <meta name="app-content" content="bcc64f372565">
-<meta name="app-build" content="13cdef54f029">
+<meta name="app-build" content="f23bcb05a61c">
 <title>ПОЗИТРОН КЕНО v7.4.03</title>
 <link rel="manifest" href="manifest.webmanifest">
 
@@ -585,7 +585,7 @@ load();render();auto();setTimeout(update,800);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=13cdef54f029', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=f23bcb05a61c', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });
