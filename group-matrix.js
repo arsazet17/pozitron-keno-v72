@@ -92,7 +92,7 @@
         <button type="button" class="gm-btn" data-gm-action="all-cols">Все столбы</button>
         ${marks.size ? `<button type="button" class="gm-btn gm-clear" data-gm-action="clear">✕ отметки (${marks.size})</button>` : ''}
       </div>
-      <div class="gm-note">Группа — сколько чисел выпало в столбе: ГР1 — одно, ГР2 — два… ГР0 — пусто. Нажми на группу: столбы → числа → чёт → нечёт. Нажми на число — оно отметится во всех тиражах. Жёлтым — выигравший столб.</div>
+      <div class="gm-note">Группа — сколько чисел выпало в столбе: ГР1 — одно, ГР2 — два… ГР0 — пусто. Нажми на группу: столбы → числа → чёт → нечёт. Нажми на число — оно отметится синим во всех тиражах. Жёлтая рамка — выпавшая группа, зелёным — выигравший столб.</div>
       <div class="gm-scroll"><table class="gm-table"><thead>${headHtml()}</thead><tbody>${rows}</tbody></table></div>`;
     const sc = panel.querySelector('.gm-scroll');
     if (sc) sc.scrollTop = state.reverse ? (atEnd ? 0 : prevTop) : (atEnd ? sc.scrollHeight : prevTop);
