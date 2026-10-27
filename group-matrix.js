@@ -18,7 +18,7 @@
   const col = n => n % 10 === 0 ? 10 : n % 10;
   const pad = n => String(n).padStart(2, '0');
 
-  const state = { count: 50, reverse: false, modes: { 0: 'cols', 1: 'cols', 2: 'cols', 3: 'cols', 4: 'cols' }, marks: [] };
+  const state = { count: 50, reverse: false, tir: false, modes: { 0: 'cols', 1: 'cols', 2: 'cols', 3: 'cols', 4: 'cols' }, marks: [] };
   try { Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (_) {}
   const marks = new Set((state.marks || []).map(Number));
   function save() {
@@ -31,25 +31,28 @@
   function list() { try { return Array.isArray(draws) ? draws : []; } catch (_) { return []; } }
 
   // Разбивка тиража d на группы по предыдущему тиражу prev: { g: { cols:[...], nums:[...] } }
-  const cache = new WeakMap();
+  // Два режима: обычный — группа по предыдущему тиражу (откуда вышел столб, как в цепочках);
+  // ТИР — настоящие группы самого тиража (сколько чисел выпало в столбе в этом же тираже).
+  const cache = new WeakMap(), cacheTir = new WeakMap();
   function byColumn(d) {
     const out = Array.from({ length: 11 }, () => []);
     for (const n of d.balls) out[col(Number(n))].push(Number(n));
     return out;
   }
   function groupsOf(d, prev) {
-    if (cache.has(d)) return cache.get(d);
+    const store = state.tir ? cacheTir : cache;
+    if (store.has(d)) return store.get(d);
     const out = {};
     for (const g of GROUPS) out[g] = { cols: [], nums: [] };
-    if (!prev) return out;
-    const before = byColumn(prev), now = byColumn(d);
+    if (!state.tir && !prev) return out;
+    const now = byColumn(d), before = state.tir ? now : byColumn(prev);
     for (let c = 1; c <= 10; c++) {
       const g = Math.min(4, before[c].length);
       out[g].cols.push(c);
       out[g].nums.push(...now[c]);
     }
     for (const g of GROUPS) out[g].nums.sort((a, b) => a - b);
-    cache.set(d, out);
+    store.set(d, out);
     return out;
   }
   function winnerOf(d) {
@@ -62,7 +65,8 @@
     const hasWin = grp.cols.includes(win);
     const parity = x => mode === 'even' ? x % 2 === 0 : mode === 'odd' ? x % 2 === 1 : true;
     let inner = '';
-    if (mode === 'cols') {
+    // В режиме ТИР у ГР0 чисел нет — показываем её пустые столбы
+    if (mode === 'cols' || (state.tir && g === 0)) {
       inner = grp.cols.filter(parity).map(c => `<span class="gm-c${c === win ? ' gm-win' : ''}">${c}</span>`).join('');
     } else {
       inner = grp.nums.filter(parity).map(n => `<span class="gm-n${marks.has(n) ? ' gm-mark' : ''}${col(n) === win ? ' gm-winn' : ''}" data-gm-num="${n}">${pad(n)}</span>`).join('');
@@ -100,9 +104,12 @@
         <button type="button" class="gm-btn" data-gm-action="reverse">↑↓</button>
         <button type="button" class="gm-btn" data-gm-action="all-nums">Все числа</button>
         <button type="button" class="gm-btn" data-gm-action="all-cols">Все столбы</button>
+        <button type="button" class="gm-btn gm-tir${state.tir ? ' on' : ''}" data-gm-action="tir" aria-pressed="${state.tir}" title="Настоящие группы самого тиража">ТИР</button>
         ${marks.size ? `<button type="button" class="gm-btn gm-clear" data-gm-action="clear">✕ отметки (${marks.size})</button>` : ''}
       </div>
-      <div class="gm-note">Группа столба — сколько чисел было в нём в <b>предыдущем</b> тираже (как «гр» в цепочках): ГР0 — ни одного, ГР1 — одно, ГР2 — два… Жёлтая рамка — из какой группы вышел выигравший столб, зелёным — сам столб. Нажми на группу: столбы → числа этого тиража → чёт → нечёт. Нажми на число — отметится синим везде.</div>
+      <div class="gm-note">${state.tir
+        ? '<b>ТИР включён:</b> настоящие группы тиража — сколько чисел выпало в столбе в этом же тираже: ГР0 — пусто, ГР1 — одно, ГР2 — два… Жёлтая рамка — группа выигравшего столба, зелёным — сам столб.'
+        : 'Группа столба — сколько чисел было в нём в <b>предыдущем</b> тираже (как «гр» в цепочках): ГР0 — ни одного, ГР1 — одно, ГР2 — два… Жёлтая рамка — из какой группы вышел выигравший столб, зелёным — сам столб. Кнопка <b>ТИР</b> — настоящие группы самого тиража.'} Нажми на группу: столбы → числа → чёт → нечёт. Нажми на число — отметится синим везде.</div>
       <div class="gm-scroll"><table class="gm-table"><thead>${headHtml()}</thead><tbody>${rows}</tbody></table></div>`;
     const sc = panel.querySelector('.gm-scroll');
     if (sc) sc.scrollTop = state.reverse ? (atEnd ? 0 : prevTop) : (atEnd ? sc.scrollHeight : prevTop);
@@ -141,6 +148,7 @@
     if (a === 'reverse') state.reverse = !state.reverse;
     if (a === 'all-nums') GROUPS.forEach(g => { state.modes[g] = 'nums'; });
     if (a === 'all-cols') GROUPS.forEach(g => { state.modes[g] = 'cols'; });
+    if (a === 'tir') state.tir = !state.tir;
     if (a === 'clear') marks.clear();
     save(); render();
   });
