@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-content" content="674de0fd16fc">
-<meta name="app-build" content="2d907f3751b9">
-<title>ПОЗИТРОН КЕНО v7.4.01</title>
+<meta name="app-content" content="00f8ce9e37f4">
+<meta name="app-build" content="3865c57013f0">
+<title>ПОЗИТРОН КЕНО v7.4.02</title>
 <link rel="manifest" href="manifest.webmanifest">
 
 <link rel="icon" type="image/svg+xml" href="icon-v72.png">
@@ -186,6 +186,33 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
 }
 .ah-win{color:#72df95;font-weight:950}.ah-miss{color:#ff9ca4;font-weight:900}
 
+
+/* Матрица групп */
+.gm-panel{padding:8px}
+.gm-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:7px}
+.gm-bar b{font-size:15px;margin-right:auto}
+.gm-bar select{width:auto;padding:6px 8px;font-size:13px}
+.gm-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800}
+.gm-clear{border-color:#3f8f5f;color:#9ff0bd}
+.gm-note{font-size:11.5px;color:var(--muted);margin:0 2px 8px;line-height:1.35}
+.gm-scroll{max-height:70vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.gm-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
+.gm-table th{position:sticky;top:0;z-index:1;background:#16304d;padding:0;border-bottom:1px solid var(--line)}
+.gm-table td{border:1px solid #1d3350;padding:3px 2px;vertical-align:middle;text-align:center}
+.gm-draw{width:44px;color:var(--muted);font-size:11px}
+.gm-time{width:40px;color:var(--muted);font-size:11px}
+th.gm-draw,th.gm-time{padding:6px 2px;font-size:11px}
+.gm-head{width:100%;border:0;background:transparent;color:var(--text);font-weight:900;font-size:12px;padding:6px 1px;line-height:1.1}
+.gm-head small{display:block;font-size:9.5px;font-weight:700;color:var(--muted);margin-top:2px}
+.gm-head.gm-m-nums small{color:#9fd0ff}.gm-head.gm-m-even small{color:#9ff0bd}.gm-head.gm-m-odd small{color:#ffc58a}
+.gm-cell{background:#0f2238}
+.gm-empty{background:#0a1626}
+.gm-has-win{background:#2a2a1a}
+.gm-c{display:inline-block;min-width:15px;margin:1px;padding:1px 2px;border-radius:5px;background:#203b5c;font-weight:800}
+.gm-c.gm-win{background:var(--gold);color:#1d1600}
+.gm-n{display:inline-block;margin:1px;padding:1px 2px;border-radius:5px;background:#1b3350;font-weight:700;font-size:11.5px;cursor:pointer}
+.gm-n.gm-winn{box-shadow:inset 0 -2px 0 var(--gold)}
+.gm-n.gm-mark{background:#2f8f5b;color:#fff}
 </style>
 </head>
 <body>
@@ -193,8 +220,8 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div class="top">
     <div>
       <div class="brand">🎯 ПОЗИТРОН КЕНО</div>
-      <span id="appVersionBadge" class="version-badge">v7.4.01</span>
-      <div id="status" class="sub">v7.4.01 · база загружается…</div>
+      <span id="appVersionBadge" class="version-badge">v7.4.02</span>
+      <div id="status" class="sub">v7.4.02 · база загружается…</div>
     </div>
     <div>
       <button id="sync" class="icon">↻</button>
@@ -221,7 +248,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div class="section"><span>Инструменты</span></div>
   <div class="tools main-tools">
     <button class="tool" data-panel="searchPanel">🔍 Поиск</button>
-    <button id="analogsBtn" class="tool" type="button">🎯 Аналоги+</button>
+    <button id="groupMatrixBtn" class="tool" type="button" aria-expanded="false">🔢 Матрица групп</button>
     <button class="tool" data-panel="archivePanel">📅 Архив</button>
     <button class="tool" data-panel="dataPanel">💾 База</button>
     <div class="sm-split">
@@ -230,6 +257,8 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
     </div>
     <button id="aiBtn" class="tool" type="button">🧠 AI Переходов</button>
   </div>
+
+  <section id="groupMatrixPanel" class="card panel gm-panel"></section>
 
   <section id="sprintMarathonPanel" class="card panel" aria-live="polite">
     <div id="sprintMarathonResult" class="small"></div>
@@ -453,9 +482,10 @@ function renderArchiveDay(date){
 }
 
 function render(){
- $('status').textContent=draws.length?`v7.4.01 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.01 · база: 0';
+ $('status').textContent=draws.length?`v7.4.02 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.02 · база: 0';
  if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
- renderCards();renderChains();renderArchive()
+ renderCards();renderChains();renderArchive();
+ try{window.dispatchEvent(new Event('keno:draws'))}catch(_){}
 }
 async function update(){
  const raw='https://raw.githubusercontent.com/arsazet17/pozitron-keno-v72/main/keno-history.json';
@@ -524,10 +554,10 @@ try{['pozitron_v7_plus_predictions','pozitronMaxRetroForecastsV72'].forEach(k=>l
 load();render();auto();setTimeout(update,800);
 </script>
 <script id="sm-buttons">
-/* функции предсказаний убраны. Кнопки 🎯 Аналоги+, 🏃, 🐢 и 🧠 AI Переходов оставлены под новые функции:
+/* функции предсказаний убраны. Кнопки 🏃, 🐢 и 🧠 AI Переходов оставлены под новые функции:
    каждая открывает свою пустую заготовку, повторное нажатие закрывает. */
 (function(){
-  const IDS=['analogsBtn','sprintBtn','marathonBtn','aiBtn'];
+  const IDS=['sprintBtn','marathonBtn','aiBtn'];
   let active=null;
   document.addEventListener('click',event=>{
     const button=event.target.closest(IDS.map(id=>'#'+id).join(','));
@@ -546,13 +576,14 @@ load();render();auto();setTimeout(update,800);
   },true);
 })();
 </script>
+<script src="group-matrix.js?v=c721624d7898"></script>
 <script src="next-draw-banner.js?v=8b0b10f3b11d"></script>
 
 <script id="v72-sw-register">
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=2d907f3751b9', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=3865c57013f0', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });

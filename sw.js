@@ -1,7 +1,7 @@
-const CACHE='pozitron-v72-shell-2d907f3751b9';
+const CACHE='pozitron-v72-shell-3865c57013f0';
 const SHELL=[
  './','./index.html','./manifest.webmanifest',
- './next-draw-banner.js',
+ './group-matrix.js','./next-draw-banner.js',
  './icon-v72.png'
 ];
 self.addEventListener('install',event=>event.waitUntil(
