@@ -100,7 +100,7 @@
     panel.innerHTML = `
       <div class="gm-bar">
         <b>🔢 Матрица групп</b>
-        <select id="gmCount" aria-label="Сколько тиражей">${[20, 50, 100, 200].map(n => `<option value="${n}"${state.count === n ? ' selected' : ''}>${n}</option>`).join('')}</select>
+        <label class="gm-count">Тир. <input id="gmCount" type="tel" inputmode="numeric" maxlength="4" value="${state.count}" aria-label="Сколько тиражей показать"></label>
         <button type="button" class="gm-btn" data-gm-action="reverse">↑↓</button>
         <button type="button" class="gm-btn" data-gm-action="all-nums">Все числа</button>
         <button type="button" class="gm-btn" data-gm-action="all-cols">Все столбы</button>
@@ -153,7 +153,18 @@
     save(); render();
   });
   document.addEventListener('change', e => {
-    if (e.target.id === 'gmCount') { state.count = Number(e.target.value) || 50; save(); render(); }
+    if (e.target.id === 'gmCount') applyCount(e.target);
+  });
+  // Любое количество тиражей: от 1 до MAX_ROWS (больше телефон рисует слишком долго)
+  const MAX_ROWS = 2000;
+  function applyCount(input) {
+    const n = Math.round(Number(String(input.value).replace(/\D/g, '')));
+    state.count = Math.min(MAX_ROWS, Math.max(1, n || state.count || 50));
+    input.value = state.count;
+    save(); render();
+  }
+  document.addEventListener('keydown', e => {
+    if (e.target.id === 'gmCount' && e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
   });
   window.addEventListener('keno:draws', render);
 })();

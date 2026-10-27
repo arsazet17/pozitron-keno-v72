@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-content" content="95329657046e">
-<meta name="app-build" content="85517df34b5b">
-<title>ПОЗИТРОН КЕНО v7.4.07</title>
+<meta name="app-content" content="e22d75d4fb5f">
+<meta name="app-build" content="48fe740557fe">
+<title>ПОЗИТРОН КЕНО v7.4.08</title>
 <link rel="manifest" href="manifest.webmanifest">
 
 <link rel="icon" type="image/svg+xml" href="icon-v72.png">
@@ -192,6 +192,8 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
 .gm-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:7px}
 .gm-bar b{font-size:15px;margin-right:auto}
 .gm-bar select{width:auto;padding:6px 8px;font-size:13px}
+.gm-count{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-weight:800}
+.gm-count input{width:64px;padding:6px 8px;font-size:15px;font-weight:900;text-align:center}
 .gm-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:8px;padding:6px 8px;font-size:12px;font-weight:800}
 .gm-tir{min-width:52px;letter-spacing:.5px}
 .gm-tir.on{background:var(--gold);color:#1d1600;border-color:var(--gold)}
@@ -224,8 +226,8 @@ th.gm-draw,th.gm-time{padding:6px 2px;font-size:11px}
   <div class="top">
     <div>
       <div class="brand">🎯 ПОЗИТРОН КЕНО</div>
-      <span id="appVersionBadge" class="version-badge">v7.4.07</span>
-      <div id="status" class="sub">v7.4.07 · база загружается…</div>
+      <span id="appVersionBadge" class="version-badge">v7.4.08</span>
+      <div id="status" class="sub">v7.4.08 · база загружается…</div>
     </div>
     <div>
       <button id="sync" class="icon">↻</button>
@@ -486,7 +488,7 @@ function renderArchiveDay(date){
 }
 
 function render(){
- $('status').textContent=draws.length?`v7.4.07 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.07 · база: 0';
+ $('status').textContent=draws.length?`v7.4.08 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.08 · база: 0';
  if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
  renderCards();renderChains();renderArchive();
  try{window.dispatchEvent(new Event('keno:draws'))}catch(_){}
@@ -580,14 +582,14 @@ load();render();auto();setTimeout(update,800);
   },true);
 })();
 </script>
-<script src="group-matrix.js?v=c13f3a6fd51a"></script>
+<script src="group-matrix.js?v=c651242ca82d"></script>
 <script src="next-draw-banner.js?v=8b0b10f3b11d"></script>
 
 <script id="v72-sw-register">
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=85517df34b5b', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=48fe740557fe', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });
