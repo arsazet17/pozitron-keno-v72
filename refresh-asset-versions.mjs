@@ -42,7 +42,35 @@ async function appBuildHash(){
 }
 
 let html=await fs.readFile(INDEX,'utf8');
-const version=await appVersion();
+let version=await appVersion();
+
+// v7.4.01: номер версии сам растёт при каждом изменении приложения: 7.4.01 → 7.4.02 → …
+// Отпечаток содержимого считается без номеров версий и сборок, поэтому
+// повторный запуск без изменений версию не трогает.
+async function contentHash(text){
+  let x=normalizeIndexForBuild(text)
+    .replace(/<meta\s+name=["']app-content["'][^>]*>\s*/i,'')
+    .replace(/v7\.\d+(?:\.\d+)?/g,'vX');
+  const h=crypto.createHash('sha256').update(x);
+  for(const asset of ['next-draw-banner.js','icon-v72.png'])if(await exists(asset))h.update(await fs.readFile(asset));
+  return h.digest('hex').slice(0,12);
+}
+function bump(v){
+  const p=String(v).split('.');
+  if(p.length<3)p.push('00');
+  const n=Number(p[2]);
+  p[2]=String(Number.isFinite(n)?n+1:1).padStart(2,'0');
+  return p.slice(0,3).join('.');
+}
+const content=await contentHash(html);
+const savedContent=(html.match(/<meta\s+name=["']app-content["']\s+content=["']([^"']*)["']/i)||[])[1]||'';
+if(savedContent&&savedContent!==content){
+  version=bump(version);
+  await fs.writeFile(VERSION_FILE,JSON.stringify({version})+'\n','utf8');
+  console.log('VERSION BUMP →',version);
+}
+if(/<meta\s+name=["']app-content["']/i.test(html))html=html.replace(/<meta\s+name=["']app-content["'][^>]*>/i,`<meta name="app-content" content="${content}">`);
+else html=html.replace(/<meta name="theme-color"[^>]*>/i,m=>`${m}\n<meta name="app-content" content="${content}">`);
 
 // Visible semantic version only.
 html=html.replace(/<title>ПОЗИТРОН КЕНО v7\.\d+(?:\.\d+)?<\/title>/,`<title>ПОЗИТРОН КЕНО v${version}</title>`);
@@ -86,7 +114,7 @@ await fs.writeFile(INDEX,html,'utf8');
 
 let manifest;
 try{manifest=JSON.parse(await fs.readFile(MANIFEST,'utf8'))}catch{manifest={}}
-manifest.name=`ПОЗИТРОН КЕНО v${version} AI Переходов`;
+manifest.name=`ПОЗИТРОН КЕНО v${version}`;
 manifest.short_name=`КЕНО v${version}`;
 manifest.start_url=`./?v=${build}`;
 manifest.scope='./';

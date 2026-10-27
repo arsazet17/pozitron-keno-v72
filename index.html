@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111f">
-<meta name="app-build" content="f60c95790c49">
-<title>ПОЗИТРОН КЕНО v7.4.0</title>
+<meta name="app-content" content="674de0fd16fc">
+<meta name="app-build" content="2d907f3751b9">
+<title>ПОЗИТРОН КЕНО v7.4.01</title>
 <link rel="manifest" href="manifest.webmanifest">
 
 <link rel="icon" type="image/svg+xml" href="icon-v72.png">
@@ -192,8 +193,8 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   <div class="top">
     <div>
       <div class="brand">🎯 ПОЗИТРОН КЕНО</div>
-      <span id="appVersionBadge" class="version-badge">v7.4.0</span>
-      <div id="status" class="sub">v7.4.0 · база загружается…</div>
+      <span id="appVersionBadge" class="version-badge">v7.4.01</span>
+      <div id="status" class="sub">v7.4.01 · база загружается…</div>
     </div>
     <div>
       <button id="sync" class="icon">↻</button>
@@ -424,7 +425,7 @@ function archiveDateTimeValue(d){
  return new Date(y||2000,(m||1)-1,day||1,0,0,0).getTime()+minutes(d.time)
 }
 function renderArchive(){
- // v7.4.0: один проход по базе вместо поиска по всей базе при каждой сортировке (убирает зависание)
+ // один проход по базе вместо поиска по всей базе при каждой сортировке (убирает зависание)
  const m=new Map();
  draws.forEach(d=>{const k=archiveDateKey(d);const x=m.get(k);if(x)x.n++;else m.set(k,{n:1,v:archiveDateTimeValue(d)})});
  const rows=[...m.entries()].sort((a,b)=>b[1].v-a[1].v).map(([k,x])=>[k,x.n]);
@@ -452,7 +453,7 @@ function renderArchiveDay(date){
 }
 
 function render(){
- $('status').textContent=draws.length?`v7.4.0 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.0 · база: 0';
+ $('status').textContent=draws.length?`v7.4.01 · база: ${draws.length.toLocaleString('ru-RU')} · последний №${draws.at(-1).draw}`:'Версия v7.4.01 · база: 0';
  if(draws.length&&!$('chainDate').value)$('chainDate').value=draws.at(-1).date;
  renderCards();renderChains();renderArchive()
 }
@@ -475,7 +476,7 @@ async function update(){
     const r=await fetch(fetchUrl,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
     const arr=parse(await r.text());if(!arr.length)throw new Error('нет распознанных тиражей');
     merge(arr);
-    // v7.4.0: перерисовываем только если база изменилась, считаем только реально новые тиражи
+    // перерисовываем только если база изменилась, считаем только реально новые тиражи
     if(draws.length!==prevLen)render();
     const fresh=prevLast?draws.filter(d=>d.draw>prevLast).length:0;
     const last=draws.at(-1),base=draws.length.toLocaleString('ru-RU');
@@ -486,7 +487,7 @@ async function update(){
   $('status').textContent='Обновление не выполнено: '+(lastError?.message||'источник недоступен')
  }finally{updating=false}
 }
-// v7.4.0: база скачивается только тогда, когда на сервере мог появиться новый тираж
+// база скачивается только тогда, когда на сервере мог появиться новый тираж
 // (тираж каждые 15–30 мин + ~8 мин на запись в архив), а не каждые 5 минут подряд.
 let updating=false,lastCheckAt=0;
 function drawTimeMs(d){
@@ -518,12 +519,12 @@ $('sync').onclick=update;$('sync2').onclick=update;
 $('settingsBtn').onclick=()=>{const raw='https://raw.githubusercontent.com/arsazet17/pozitron-keno-v72/main/keno-history.json';let u=(localStorage.getItem('pozitron_v5_url')||raw).trim();if(!u||u==='https://pozitron-keno-v3.netlify.app/.netlify/functions/fresh-draws'||u==='keno-history.json')u=raw;$('sourceUrl').value=u;$('interval').value=localStorage.getItem('pozitron_v5_interval')||'300000';$('settings').showModal()};
 $('saveSettings').onclick=()=>{localStorage.setItem('pozitron_v5_url',$('sourceUrl').value.trim());localStorage.setItem('pozitron_v5_interval',$('interval').value);auto()};
 $('chainDate').onchange=renderChains;
-// v7.4.0: старые сохранённые прогнозы больше не нужны — освобождаем память телефона
+// старые сохранённые прогнозы больше не нужны — освобождаем память телефона
 try{['pozitron_v7_plus_predictions','pozitronMaxRetroForecastsV72'].forEach(k=>localStorage.removeItem(k))}catch(_){}
 load();render();auto();setTimeout(update,800);
 </script>
 <script id="sm-buttons">
-/* v7.4.0: функции предсказаний убраны. Кнопки 🎯 Аналоги+, 🏃, 🐢 и 🧠 AI Переходов оставлены под новые функции:
+/* функции предсказаний убраны. Кнопки 🎯 Аналоги+, 🏃, 🐢 и 🧠 AI Переходов оставлены под новые функции:
    каждая открывает свою пустую заготовку, повторное нажатие закрывает. */
 (function(){
   const IDS=['analogsBtn','sprintBtn','marathonBtn','aiBtn'];
@@ -551,7 +552,7 @@ load();render();auto();setTimeout(update,800);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=f60c95790c49', { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js?v=2d907f3751b9', { updateViaCache: 'none' });
       await reg.update();
     } catch (e) { console.warn('SW update failed', e); }
   });

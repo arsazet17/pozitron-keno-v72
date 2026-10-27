@@ -51,12 +51,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- index.html manifest.webmanifest sw.js; then
+          if git diff --quiet -- index.html manifest.webmanifest sw.js app-version.json; then
             echo "APP BUILD unchanged"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html manifest.webmanifest sw.js
+          git add index.html manifest.webmanifest sw.js app-version.json
           git commit -m "KENO v7.2 · AUTO APP BUILD"
           git push origin HEAD:main
